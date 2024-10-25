@@ -45,7 +45,7 @@ class EfficientGaussianEmb:
         m = self.calc_m(x)
 
         D, S, I_S = self._partition_contractions(x, contraction_path, nodes_to_be_sketched)
-        self._contract_and_sketch_kronecker_product(x, D, nodes_to_be_sketched, m)
+        self._contract_and_sketch_kronecker_product(x, D, m)
         self._contract_and_sketch_tree_embedding(S, I_S, x, m)
 
     def _partition_contractions(self, x: TensorNetwork, contraction_path: List[Tuple[int, int]],
@@ -59,7 +59,7 @@ class EfficientGaussianEmb:
                   S - A list of contractions with both nodes having dimensions to be sketched
                   I_S - A list of contractions with no nodes to be sketched union with S
         """
-        D = {i: [] for i in range(len(nodes_to_be_sketched))}
+        D = {node: [] for node in nodes_to_be_sketched}
         S = []
         I_S = []
 
@@ -74,26 +74,23 @@ class EfficientGaussianEmb:
                 S.append(contraction)
                 I_S.append(contraction)
             elif u_i_num_of_sketched_dimensions == 1:
-                E_overline_index = nodes_to_be_sketched.index(u_i)
-                D[E_overline_index].append(contraction)
+                D[u_i].append(contraction)
             elif v_i_num_of_sketched_dimensions == 1:
-                E_overline_index = nodes_to_be_sketched.index(v_i)
-                D[E_overline_index].append(contraction)
+                D[v_i].append(contraction)
             else:
                 I_S.append(contraction)
         return D, S, I_S
 
-    def _contract_and_sketch_kronecker_product(self, x: TensorNetwork, D: Dict[int, List[Tuple[int, int]]],
-                                               nodes_to_be_sketched: List[Node], m: int) -> None:
+    def _contract_and_sketch_kronecker_product(self, x: TensorNetwork, D: Dict[Node, List[Tuple[int, int]]],
+                                               m: int) -> None:
         """
         Sketches the kroncker product part of the algorithm and contracts when necessary
         :param x: The tensor network to contract
         :param D: A dict where each tuple represents D(e_i)
-        :param nodes_to_be_sketched: A list of nodes with edges in E_1
         :param m: sketch dimension size
         """
-        for i, D_e_i in D.items():
-            e_i_hat_node_index = x.get_node_index(nodes_to_be_sketched[i])
+        for node, D_e_i in D.items():
+            e_i_hat_node_index = x.get_node_index(node)
             if len(D_e_i) == 0:
                 x.sketch(i=e_i_hat_node_index, m=m)
             else:
@@ -179,7 +176,32 @@ class EfficientGaussianEmb:
         :param x: The tensornetwork
         :param m: The sketch dimension size
         """
-        pass
+        for i, j in I_S:
+            if [i, j] not in S:  # Contraction that is at I only
+                x.contract(i, j)
+            else:
+                self._sketch_and_contract_s(x, i, j)
+
+    def _sketch_and_contract_s(self, x: TensorNetwork, i: int, j: int) -> None:
+        """
+        Takes two indices that describe nodes that should be contracted under the S partition and does the neccesery
+        embedding and contracting.
+        Follows Appendix C.1 of the paper
+        :param x: The tensor network
+        :param i: The index of the first node
+        :param j: The index of the second node
+        """
+        u = x[i]
+        v = x[j]
+
+        cut_u_v = np.prod(list({e for e in u.edges}.intersection({e for e in v.edges})))
+        a_i = u.tensor.size/cut_u_v
+        b_i = v.tensor.size/cut_u_v
+
+        u_adjacent_and_not_v = [e for e in u.edges if e.get_nodes()[1] != v]
+        v_adjacent_and_not_u = [e for e in v.edges if e.get_nodes()[1] != u]
+
+        d_i = np.prod(u_adjacent_and_not_v + v_adjacent_and_not_u) - a_i - b_i
 
 if __name__ == "__main__":
     import numpy as np
@@ -191,9 +213,12 @@ if __name__ == "__main__":
 
     a = Node(np.random.randn(dim1, dim2, dim3), "a")
     b = Node(np.random.randn(6, dim1, dim4, dim3), "b")
+
+    # C doesnt have sketch dimensions at all
     c = Node(np.random.randn(dim4, dim2), "c")
 
-    d = Node(np.random.randn(dim2, dim4, dim2), "d")
+    d = Node(np.random.randn(dim2, dim4, dim1), "d")
+
 
     e_ab = ((0, 0), (1, 1))
 
@@ -202,12 +227,13 @@ if __name__ == "__main__":
 
     e_bc = ((2, 0), (1, 2))
 
-    e_ad = ((0, 1), (3, 2))
+    e_bd = ((1, 1), (3, 2))
 
     e_cd = ((2,1), (3, 0))
 
-    net = TensorNetwork([a, b, c, d], [e_ab, e_ab2, e_bc, e_ad, e_cd])
+
+    net = TensorNetwork([a, b, c, d], [e_ab2, e_bc, e_bd, e_cd])
 
     algo = EfficientGaussianEmb(0.5, 0.5, 1)
-    algo.embed(net, [[0,1], [1,2]])
+    algo.embed(net, [[0,1], [1,2], [0,3]])
 

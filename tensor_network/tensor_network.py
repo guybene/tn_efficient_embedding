@@ -16,6 +16,7 @@ class TensorNetwork:
         self._edge_list = edge_list
         self._e = self._parse_edges()
         self._nodes_to_sketch = self._get_nodes_with_dimensions_to_be_sketched()
+        self.contractions_cost = 0
 
     def sketch(self, i: int, m: int) -> None:
         """
@@ -26,12 +27,14 @@ class TensorNetwork:
         node = self[i]
         sketched_node = node
 
-        dims_to_sketch = [edge.axis1 for edge in node.get_all_dangling()]
-
-        for dim in dims_to_sketch:
-            sketching_node = Node(np.random.randn(m, node.shape[dim]) / np.sqrt(m))
-            #TODO: Add flop counter here for sketching
-            sketched_node = tn.contract(sketched_node[dim] ^ sketching_node[1], name=f"sketched_{node.name}")
+        edges_to_sketch = [edge for edge in node.get_all_dangling()]
+        for edge in edges_to_sketch:
+            dim = edge.axis1
+            sketching_node = Node(np.random.randn(m, sketched_node.shape[dim]) / np.sqrt(m))
+            sketch_edge = sketched_node[dim] ^ sketching_node[1]
+            self._count_contraction_cost(sketching_node, node)
+            sketched_node = tn.contract(sketch_edge)
+        sketched_node.set_name(f"sketched_{node.name}")
 
         for i in range(len(self._v)):
             if self._v[i] == node:
@@ -47,8 +50,8 @@ class TensorNetwork:
         """
         u = self._v[i]
         v = self._v[j]
+        self._count_contraction_cost(u,v)
         uv = u @ v
-        # TODO: Add flop counter here for contracting
         uv.set_name(u.name + v.name)
         for i in range(len(self._v)):
             if self._v[i] in [u, v]:
@@ -77,9 +80,7 @@ class TensorNetwork:
         In the paper returns nodes with edges in E_OVERLINE
         :return: A list of nodes with dimensions to be sketched
         """
-        nodes_with_external_dimensions = []
-        for i, node in enumerate(self._v):
-            nodes_with_external_dimensions += [node] * len(node.get_all_dangling())
+        nodes_with_external_dimensions = [node for node in self._v if node.get_all_dangling()]
         return nodes_with_external_dimensions
 
     def get_nodes_to_sketch(self) -> List[Node]:
@@ -105,4 +106,18 @@ class TensorNetwork:
         :return: The index of the node
         """
         return self._v.index(v)
+
+
+    def _count_contraction_cost(self, U: Node, V: Node) -> None:
+        """
+        Counts the cost of contractions between the two given nodes
+        :param U: The first node the contract
+        :param V: The second node to contract
+        """
+        U_size = U.tensor.size
+        V_size = V.tensor.size
+        shared_dims = [u_edge.dimension for u_edge in U.edges if u_edge in V.edges]
+        contraction_cost = U_size * V_size / np.prod(shared_dims)
+        self.contractions_cost += contraction_cost
+
 
