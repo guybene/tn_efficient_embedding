@@ -216,22 +216,12 @@ if __name__ == "__main__":
 
 
 
-    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd], is_tree_embedding=False)
+    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd], is_tree_embedding=True)
     T_0 = [[0, 1], [1, 2], [2, 3]]
-
-    # dim1 = 50
-    # dim2 = 40
-    # dim3 = 30
-    #
-    # a = Node(np.random.randn(dim1,dim2))
-    # b = node(np.randnom.randn(dim2,dim3))
-    # e_ab = ((0,1), (1,0))
-    # net = TensorNetwork([a, b, c, d], [e_ab], is_tree_embedding=True)
-    # T_0 = [[0, 1], [1, 2], [2, 3]]
 
     eps = 0.8
     delta = 0.5
-    m_factor = 4
+    m_factor = 1
     print(int(m_factor * 6 * np.log(1 / delta) / eps ** 2))
 
     algo = EfficientGaussianEmb(eps, delta, m_factor)

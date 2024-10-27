@@ -234,8 +234,8 @@ class TensorNetwork:
         v_dangling = [e for e in v.get_all_dangling() if e.dimension == m][0]
         u_dangling = [e for e in u.get_all_dangling() if e.dimension == m][0]
 
-        m_sketching = int(np.sqrt(m * factor))
-        b_i_sketching = int(np.sqrt(m / factor))
+        m_sketching = int(max(np.sqrt(m * factor), 1))
+        b_i_sketching = int(max(np.sqrt(m / factor), 1))
 
         self.sketch(v_dangling, m_sketching)
         v = self[j]
@@ -247,8 +247,8 @@ class TensorNetwork:
         v = self[j]
 
         # connect tree nodes
-        tree_node_1 = Node(np.random.randn(m, b_i_sketching, m) / np.sqrt(m))
-        tree_node_2 = Node(np.random.randn(m, m_sketching, m) / np.sqrt(m))
+        tree_node_1 = Node(np.random.randn(m, b_i_sketching, m) / m)
+        tree_node_2 = Node(np.random.randn(m, m_sketching, m) / m)
 
         # Names like appendix C.1
         tree_node_1[0] ^ u[u_dangling.axis1]
