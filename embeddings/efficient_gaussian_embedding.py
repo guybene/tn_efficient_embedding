@@ -31,7 +31,7 @@ class EfficientGaussianEmb:
         """
         m_theta = len(x.get_edges_to_sketch()) * np.log(1 / self.delta) / self.eps ** 2
         m = int(m_theta * self.m_scalar)
-        return m
+        return max(m, 1)
 
     def embed(self, x: TensorNetwork, contraction_path: List[Tuple[int, int]]) -> TensorNetwork:
         """
@@ -88,7 +88,7 @@ class EfficientGaussianEmb:
     def _contract_and_sketch_kronecker_product(self, x: TensorNetwork, D: Dict[Edge, List[Tuple[int, int]]],
                                                m: int) -> None:
         """
-        Sketches the kroncker product part of the algorithm and contracts when necessary
+        Sketcghes the kroncker product part of the algorithm and contracts when necessary
         :param x: The tensor network to contract
         :param D: A dict where each tuple represents D(e_i)
         :param m: sketch dimension size
@@ -181,19 +181,19 @@ class EfficientGaussianEmb:
         :param m: The sketch dimension size
         """
         for i, j in I_S:
-            if [i, j] not in S:  # Contraction that is at I only
-                x.contract(i, j)
-            else:
+            if [i,j] in S:  # Contraction that is at I only
                 x.sketch_and_contract_s(i, j, m)
+            else:
+                x.contract(i, j)
 
 
 if __name__ == "__main__":
     import numpy as np
 
-    dim1 = 10
-    dim2 = 11
-    dim3 = 15
-    dim4 = 12
+    dim1 = 70
+    dim2 = 80
+    dim3 = 90
+    dim4 = 60
 
     a = Node(np.random.randn(dim1, dim2, dim3), "a")
     b = Node(np.random.randn(6, dim1, dim4, dim3), "b")
@@ -216,14 +216,32 @@ if __name__ == "__main__":
 
 
 
-    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd], is_tree_embedding=True)
-    T_0 = [[0,1], [1,2], [2,3]]
+    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd], is_tree_embedding=False)
+    T_0 = [[0, 1], [1, 2], [2, 3]]
 
-    # orig_tensor = net.get_full_tensor(T_0)
+    # dim1 = 50
+    # dim2 = 40
+    # dim3 = 30
+    #
+    # a = Node(np.random.randn(dim1,dim2))
+    # b = node(np.randnom.randn(dim2,dim3))
+    # e_ab = ((0,1), (1,0))
+    # net = TensorNetwork([a, b, c, d], [e_ab], is_tree_embedding=True)
+    # T_0 = [[0, 1], [1, 2], [2, 3]]
 
-    algo = EfficientGaussianEmb(0.5, 0.5, 1)
-    embedded_tensor = algo.embed(net,T_0)
+    eps = 0.8
+    delta = 0.5
+    m_factor = 4
+    print(int(m_factor * 6 * np.log(1 / delta) / eps ** 2))
+
+    algo = EfficientGaussianEmb(eps, delta, m_factor)
+    embedded_tensor = algo.embed(net, T_0)
 
 
-    single_approx_tensor = embedded_tensor._v[0]
-    print(1)
+    orig = net.get_original_tensor()
+    emb = embedded_tensor._v[0].tensor
+    print("Cost:", '{:.2e}'.format(net.contractions_cost))
+
+    del algo
+    del embedded_tensor
+    print(np.linalg.norm(emb) / np.linalg.norm(orig))

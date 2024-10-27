@@ -3,6 +3,9 @@ import numpy as np
 from tensornetwork import Node, Edge
 import tensornetwork as tn
 
+
+from numpy.linalg import norm
+
 class TensorNetwork:
 
     def __init__(self, v: List[Node], edge_list: List, is_tree_embedding: bool = False):
@@ -14,13 +17,22 @@ class TensorNetwork:
         :param is_tree_embedding: if true, the contractions in S are treated different
         """
         self._v = v
-        self.original_tensor = v
+        self._save_original_tensor()
         self._edge_list = edge_list
-        self.is_tree_embedding = is_tree_embedding
         self._e = self._parse_edges()
+        self.is_tree_embedding = is_tree_embedding
         self._edges_to_sketch = self._get_edges_to_sketch()
 
         self.contractions_cost = 0
+
+    def _save_original_tensor(self):
+        """
+        Saves the original nodes for later comparison. Assumes the nodes a before the edge connecting
+        """
+        nodes_copies = []
+        for node in self._v:
+            nodes_copies.append(Node(node.tensor.copy(),name=node.name))
+        self._original_tensor = nodes_copies
 
     def sketch(self, edge: Edge, m: int) -> None:
         """
@@ -28,9 +40,10 @@ class TensorNetwork:
         :param m: The dimension to sketch v[i]'s dangling dimensions
         :param edge: The edge of v[i] to sketch
         """
+        print(f"Sketching {edge.node1}")
         assert edge.node2 is None, f"Tried to sketch {edge}, but it is connected to {edge.node2}"
-
         node = edge.node1
+        print("Size:", norm(node.tensor), "Shape:", node.shape)
         sketched_node = node
         dim = edge.axis1
 
@@ -38,6 +51,7 @@ class TensorNetwork:
         sketch_edge = sketched_node[dim] ^ sketching_node[1]
         self._count_contraction_cost(sketching_node, node)
         sketched_node = tn.contract(sketch_edge)
+        print("Size:", norm(sketched_node.tensor), "Shape:", sketched_node.shape)
 
         sketched_node.set_name(f"s_{node.name}")
 
@@ -45,31 +59,24 @@ class TensorNetwork:
             if self._v[i] == node:
                 self._v[i] = sketched_node
 
-    def get_full_tensor(self, contraction_path) -> np.ndarray:
+    def get_original_tensor(self) -> np.ndarray:
         """
-        Gets the actual tensor data
-        :param contraction_path: How to build the tensor
-        :return:
+        Gets the actual original tensor before embedding
+        :return: The original tensor
         """
-        copied_tensors = [node.copy() for node in self._v]
-        for i, j in contraction_path:
-            u = self._v[i]
-            v = self._v[j]
-            edge = [e for e in u.edges if e in v.edges][0]
-            if edge.node1 == u:
-                u_axis = edge.axis1
-                v_axis = edge.axis2
-            else:
-                u_axis = edge.axis2
-                v_axis = edge.axis1
-            u = copied_tensors[i]
-            v = copied_tensors[j]
-            u[u_axis] ^ v[v_axis]
-            uv = u @ v
-            copied_tensors[i] = uv
-            copied_tensors[j] = uv
-
-        return copied_tensors[0].tensor
+        nodes_amount = len(self._original_tensor)
+        for i in range(nodes_amount):
+            u = self._original_tensor[i]
+            for j in range(i+1, nodes_amount):
+                v = self._original_tensor[j]
+                if set(v.edges).intersection(set(u.edges)):
+                    uv = u @ v
+                    uv.set_name(u.name + "_" + v.name)
+                    self._original_tensor[i] = uv
+                    self._original_tensor[j] = uv
+        orig = self._original_tensor[-1].tensor
+        del self._original_tensor  # Trying to save memory
+        return orig
 
     def contract(self, i: int, j: int) -> None:
         """
@@ -77,9 +84,10 @@ class TensorNetwork:
         :param i: The index of the node to contract
         :param j: The index of the node to contract
         """
+        print(f"Contracting: {i} - {j}")
         u = self._v[i]
         v = self._v[j]
-        self._count_contraction_cost(u,v)
+        self._count_contraction_cost(u, v)
         uv = u @ v
         uv.set_name(u.name + v.name)
         for i in range(len(self._v)):
@@ -99,8 +107,12 @@ class TensorNetwork:
             u = self._v[u_index]
             v = self._v[v_index]
 
+            u_copy = self._original_tensor[u_index]
+            v_copy = self._original_tensor[v_index]
+
             try:
                 edges.append(u[u_dim] ^ v[v_dim])
+                u_copy[u_dim] ^ v_copy[v_dim]  # Saves the original tensor for later compare
             except Exception as e:
                 print(f"Problem with {u.name} and {v.name} with {u_dim} -> {v_dim}")
                 raise e
@@ -171,15 +183,17 @@ class TensorNetwork:
         v_dangling = [e for e in v_orig.get_all_dangling() if e.dimension == m][0]
         u_dangling = [e for e in u_orig.get_all_dangling() if e.dimension == m][0]
 
-        new_node = Node(np.random.randn(m, m, m))
+        new_node = Node(np.random.randn(m, m, m) / np.sqrt(m))
         new_node[0] ^ u_orig[u_dangling.axis1]
         new_node[1] ^ v_orig[v_dangling.axis1]
         self.contract(i, j)
 
         u = self._v[i]
 
+        self._count_contraction_cost(new_node, u)
         new_node = u @ new_node
         new_node.set_name(f"tree_{u.name}")
+
         for i in range(len(self._v)):
             if self._v[i] == u:
                 self._v[i] = new_node
@@ -233,8 +247,8 @@ class TensorNetwork:
         v = self[j]
 
         # connect tree nodes
-        tree_node_1 = Node(np.random.randn(m, b_i_sketching, m))
-        tree_node_2 = Node(np.random.randn(m, m_sketching, m))
+        tree_node_1 = Node(np.random.randn(m, b_i_sketching, m) / np.sqrt(m))
+        tree_node_2 = Node(np.random.randn(m, m_sketching, m) / np.sqrt(m))
 
         # Names like appendix C.1
         tree_node_1[0] ^ u[u_dangling.axis1]
@@ -255,6 +269,3 @@ class TensorNetwork:
         for i in range(len(self._v)):
             if self._v[i] in [u_orig, v_orig, v]:
                 self._v[i] = new_node
-
-
-
