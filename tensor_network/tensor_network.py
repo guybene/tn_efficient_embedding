@@ -3,24 +3,22 @@ import numpy as np
 from tensornetwork import Node, Edge
 import tensornetwork as tn
 
-
 from numpy.linalg import norm
+
 
 class TensorNetwork:
 
-    def __init__(self, v: List[Node], edge_list: List, is_tree_embedding: bool = False):
+    def __init__(self, v: List[Node], edge_list: List):
         """
         A tensor graph object
         :param v: The nodes of the graph
         :param edge_list:  Each element represent an edge in a hyper-graph of a tensor network.
                    Each element is of the form <[i, dim_to_contract], [j, dim_to_contract]>
-        :param is_tree_embedding: if true, the contractions in S are treated different
         """
         self._v = v
         self._save_original_tensor()
         self._edge_list = edge_list
         self._e = self._parse_edges()
-        self.is_tree_embedding = is_tree_embedding
         self._edges_to_sketch = self._get_edges_to_sketch()
 
         self.contractions_cost = 0
@@ -31,7 +29,7 @@ class TensorNetwork:
         """
         nodes_copies = []
         for node in self._v:
-            nodes_copies.append(Node(node.tensor.copy(),name=node.name))
+            nodes_copies.append(Node(node.tensor.copy(), name=node.name))
         self._original_tensor = nodes_copies
 
     def sketch(self, edge: Edge, m: int) -> None:
@@ -40,10 +38,8 @@ class TensorNetwork:
         :param m: The dimension to sketch v[i]'s dangling dimensions
         :param edge: The edge of v[i] to sketch
         """
-        print(f"Sketching {edge.node1}")
         assert edge.node2 is None, f"Tried to sketch {edge}, but it is connected to {edge.node2}"
         node = edge.node1
-        print("Size:", norm(node.tensor), "Shape:", node.shape)
         sketched_node = node
         dim = edge.axis1
 
@@ -51,7 +47,6 @@ class TensorNetwork:
         sketch_edge = sketched_node[dim] ^ sketching_node[1]
         self._count_contraction_cost(sketching_node, node)
         sketched_node = tn.contract(sketch_edge)
-        print("Size:", norm(sketched_node.tensor), "Shape:", sketched_node.shape)
 
         sketched_node.set_name(f"s_{node.name}")
 
@@ -67,7 +62,7 @@ class TensorNetwork:
         nodes_amount = len(self._original_tensor)
         for i in range(nodes_amount):
             u = self._original_tensor[i]
-            for j in range(i+1, nodes_amount):
+            for j in range(i + 1, nodes_amount):
                 v = self._original_tensor[j]
                 if set(v.edges).intersection(set(u.edges)):
                     uv = u @ v
@@ -84,7 +79,6 @@ class TensorNetwork:
         :param i: The index of the node to contract
         :param j: The index of the node to contract
         """
-        print(f"Contracting: {i} - {j}")
         u = self._v[i]
         v = self._v[j]
         self._count_contraction_cost(u, v)
@@ -93,7 +87,6 @@ class TensorNetwork:
         for i in range(len(self._v)):
             if self._v[i] in [u, v]:
                 self._v[i] = uv
-
 
     def _parse_edges(self) -> List:
         """
@@ -154,7 +147,6 @@ class TensorNetwork:
         """
         return self._v.index(v)
 
-
     def _count_contraction_cost(self, U: Node, V: Node) -> None:
         """
         Counts the cost of contractions between the two given nodes
@@ -167,7 +159,7 @@ class TensorNetwork:
         contraction_cost = U_size * V_size / np.prod(shared_dims)
         self.contractions_cost += contraction_cost
 
-    def _tree_embed(self, i: int, j: int, m: int) -> None:
+    def tree_sketch_and_contract(self, i: int, j: int, m: int) -> None:
         """
         In case we want to tree embed and not use the actuall paper algorithm.
         :param i: The index for the first node
@@ -198,7 +190,27 @@ class TensorNetwork:
             if self._v[i] == u:
                 self._v[i] = new_node
 
-    def sketch_and_contract_s(self, i: int, j: int, m: int) -> None:
+    @staticmethod
+    def _closest_dividers(m: int, split_dimension: float):
+        """
+        In order to divide the dimension of m as close to the factor as we can, we find the closest divider possible.
+        :param m: The number to get its dividers
+        :param split_dimension: The split we want to have
+        :return: closest_b1, closest_b2. Such that their product is m and closest_b1 is closest to a
+        """
+        closest_b1, closest_b2 = None, None
+        min_diff = float('inf')
+
+        for b1 in range(1, int(m ** 0.5) + 1):
+            if m % b1 == 0:
+                b2 = m // b1
+                diff = abs(b1 - split_dimension)
+                if diff < min_diff:
+                    closest_b1, closest_b2 = b1, b2
+                    min_diff = diff
+        return closest_b1, closest_b2
+
+    def tn_sketch_and_contract_s(self, i: int, j: int, m: int) -> None:
         """
         Takes two indices that describe nodes that should be contracted under the S partition and does the necessary
         embedding and contracting.
@@ -207,10 +219,6 @@ class TensorNetwork:
         :param j: The index of the second node
         :param m: The sketching size
         """
-        if self.is_tree_embedding:
-            self._tree_embed(i, j, m)
-            return
-
         u_orig = self[i]
         v_orig = self[j]
 
@@ -222,48 +230,42 @@ class TensorNetwork:
         c_i = v_orig.tensor.size // cut_u_v
         b_i = cut_u_v
 
+        # Resolves the symmetry of both cases
         if a_i <= c_i:
             u = u_orig
             v = v_orig
-            factor = int(b_i // c_i + 1)
+            factor = c_i / b_i
         else:
             u = v_orig
             v = u_orig
-            factor = int(b_i // a_i + 1)
+            factor = a_i / b_i
 
         v_dangling = [e for e in v.get_all_dangling() if e.dimension == m][0]
         u_dangling = [e for e in u.get_all_dangling() if e.dimension == m][0]
 
-        m_sketching = int(max(np.sqrt(m * factor), 1))
-        b_i_sketching = int(max(np.sqrt(m / factor), 1))
+        split_dim_1, split_dim_2 = self._closest_dividers(m, np.sqrt(m * factor))
 
-        self.sketch(v_dangling, m_sketching)
-        v = self[j]
+        # Reshape v accordingly
+        e_v1, e_v2 = tn.split_edge(v_dangling, [split_dim_1, split_dim_2])
 
-        e = [e for e in u.edges if e in v.edges][0]
-        e.disconnect()
-        dim_to_sketch = e.axis1 if e.node1 == v else e.axis2
-        self.sketch(v[dim_to_sketch], b_i_sketching)
-        v = self[j]
+        # Create z_i tree tensor
+        v_1 = Node(np.random.randn(m, split_dim_1, m) / np.sqrt(m))
+        v_2 = Node(np.random.randn(m, split_dim_2, m) / np.sqrt(m))
 
-        # connect tree nodes
-        tree_node_1 = Node(np.random.randn(m, b_i_sketching, m) / m)
-        tree_node_2 = Node(np.random.randn(m, m_sketching, m) / m)
+        # Connect the relevant edges
+        v_1[1] ^ v[e_v1.axis1]
+        v_2[1] ^ v[e_v2.axis1]
 
-        # Names like appendix C.1
-        tree_node_1[0] ^ u[u_dangling.axis1]
-        tree_node_1[1] ^ v[-1]
-
-        tree_node_1[2] ^ tree_node_2[2]
-        tree_node_2[1] ^ v[-2]
+        v_1[0] ^ u[u_dangling.axis1]
+        v_1[2] ^ v_2[0]
 
         # contract nodes
-        self._count_contraction_cost(tree_node_1, u)
-        new_node = tree_node_1 @ u
+        self._count_contraction_cost(v_1, u)
+        new_node = v_1 @ u
         self._count_contraction_cost(new_node, v)
         new_node = new_node @ v
-        self._count_contraction_cost(new_node, tree_node_2)
-        new_node = new_node @ tree_node_2
+        self._count_contraction_cost(new_node, v_2)
+        new_node = new_node @ v_2
 
         new_node.set_name(f"z_i_{u_orig.name}_{v_orig.name}")
         for i in range(len(self._v)):

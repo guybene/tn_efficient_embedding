@@ -11,7 +11,7 @@ class EfficientGaussianEmb:
     Implements the paper: https://arxiv.org/abs/2205.13163
     """
 
-    def __init__(self, eps: float, delta: float, m_scalar: float):
+    def __init__(self, eps: float, delta: float, m_scalar: float, is_tn_embedding=False):
         """
         Creats the Efficient Gaussian Embedding object.
         The embedding is eps-delta accurate
@@ -19,10 +19,12 @@ class EfficientGaussianEmb:
         :param delta: The probability for a higher change than epsilon
         :param m_scalar: The scalar to multiply m by in order to actually get good results.
         m=theta(N_E/log(1/delta)/eps^2) so we have m up to this scalar
+        :param is_tn_embedding: Should we use TN or tree embedding
         """
         self.eps = eps
         self.delta = delta
         self.m_scalar = m_scalar
+        self.is_tn_embedding = is_tn_embedding
 
     def calc_m(self, x: TensorNetwork):
         """
@@ -159,10 +161,6 @@ class EfficientGaussianEmb:
 
             new_U_size = np.prod(new_shape)
             current_shape = new_shape
-            #TODO: remove this print
-
-            # print("Node Contracting: ", V.name, "New shape ", new_shape, "Size", new_U_size)
-
             if new_U_size < min_U_size:
                 min_U_size = new_U_size
                 min_index = i
@@ -181,8 +179,11 @@ class EfficientGaussianEmb:
         :param m: The sketch dimension size
         """
         for i, j in I_S:
-            if [i,j] in S:  # Contraction that is at I only
-                x.sketch_and_contract_s(i, j, m)
+            if (i, j) in S:
+                if self.is_tn_embedding:
+                    x.tn_sketch_and_contract_s(i, j, m)
+                else:
+                    x.tree_sketch_and_contract(i, j, m)
             else:
                 x.contract(i, j)
 
@@ -216,22 +217,14 @@ if __name__ == "__main__":
 
 
 
-    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd], is_tree_embedding=True)
+    net = TensorNetwork([a, b, c, d], [e_ab, e_bc, e_bd, e_cd],)
     T_0 = [[0, 1], [1, 2], [2, 3]]
 
     eps = 0.8
     delta = 0.5
     m_factor = 1
-    print(int(m_factor * 6 * np.log(1 / delta) / eps ** 2))
 
     algo = EfficientGaussianEmb(eps, delta, m_factor)
     embedded_tensor = algo.embed(net, T_0)
 
 
-    orig = net.get_original_tensor()
-    emb = embedded_tensor._v[0].tensor
-    print("Cost:", '{:.2e}'.format(net.contractions_cost))
-
-    del algo
-    del embedded_tensor
-    print(np.linalg.norm(emb) / np.linalg.norm(orig))
