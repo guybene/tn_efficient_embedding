@@ -10,9 +10,9 @@ from tensor_network.tensor_network import TensorNetwork
 from embeddings.efficient_gaussian_embedding import EfficientGaussianEmb
 
 
-class kroneckerDataTester:
+class KroneckerDataTester:
 
-    kronecker_DATA_PATH = "results/kronecker_order_test/order_{order}_results.csv"
+    KRONECKER_DATA_PATH = "results/kronecker_order_test/order_{order}_results.csv"
 
     def __init__(self, order: List[int], m_scalar_options: List[int], kronecker_sketch_sizes: List[int],
                  kronecker_factor: List[int], dim_size=1000, embed_eps=0.2, embed_delta=0.95):
@@ -185,22 +185,22 @@ class kroneckerDataTester:
               "m_factor":[], "actual_m": [], "sketch_score_1": [],
                "sketch_score_2": [], "cost": [], "algo": []}
         for order in self.order:
-            print("Working on order:", order)
+            print("Kronecker Data Experiment. Working on order:", order)
             for i in range(25):
-                print(f"{i}/25")
+                print(f"Kroncker Tensor generated: {i}/25")
                 kronecker_data = self.create_order_test_data(order)
-                print("Working on katri-rao")
                 self.run_katri_rao_on_kronecker(i, res, order, kronecker_data)
-                print("Working on TN")
                 self.run_tree_and_TN_on_kronecker(i, res, order, kronecker_data)
 
-            # pd.DataFrame(res).to_csv(self.kronecker_DATA_PATH.format(order=order))  # Note we save a checkpoint for every order
+            path_to_save = self.KRONECKER_DATA_PATH.format(order=order)
+            print(f"Saved Kronecker results in {path_to_save}")
+            pd.DataFrame(res).to_csv(path_to_save)  # Note we save a checkpoint for every order
 
 
 if __name__ == "__main__":
     order = [4, 6, 8, 10]
     m_scalar_options = [4, 5, 6, 7]
     katri_rao_sketch_sizes = [1000, 3000, 5000, 10 ** 4, 15000, 20000]
-    kronecker_data_tester = kroneckerDataTester(order=order, m_scalar_options=m_scalar_options, kronecker_factor=[1,2],
-                                              kronecker_sketch_sizes=katri_rao_sketch_sizes)
+    kronecker_data_tester = KroneckerDataTester(order=order, m_scalar_options=m_scalar_options, kronecker_factor=[1, 2],
+                                                kronecker_sketch_sizes=katri_rao_sketch_sizes)
     kronecker_data_tester.run_kronecker_order_test_and_save()

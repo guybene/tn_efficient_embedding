@@ -33,7 +33,7 @@ class AnalyzeResults:
 
     @staticmethod
     def analyze_and_plot_kroncker_data(order):
-        data_path = KroneckerDataTester.KRONCKER_DATA_PATH.format(order=order)
+        data_path = KroneckerDataTester.KRONECKER_DATA_PATH.format(order=order)
         res = pd.read_csv(data_path, index_col=0)
         passed_configs = res[(np.abs(res["sketch_score_1"] - 1) <= 0.1) &
                              (np.abs(res["sketch_score_2"] - 1) <= 0.1)]

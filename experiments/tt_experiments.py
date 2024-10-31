@@ -124,12 +124,14 @@ class TTDataTester:
               "m_factor":[], "actual_m": [], "sketch_score_1": [],
                "sketch_score_2": [], "cost": [], "algo": []}
         for rank in self.rank:
-            print("Working on Rank:", rank)
+            print("TT data experiment. Working on Rank:", rank)
             for i in range(25):
-                print(f"{i}/25")
+                print(f"TT Tensors generated: {i}/25")
                 self.run_single_configuration(i, res, rank)
 
-            pd.DataFrame(res).to_csv(self.TT_RANK_DATA_PATH.format(rank=rank))  # Note we save a checkpoint for every rank
+            path_to_save = self.TT_RANK_DATA_PATH.format(rank=rank)
+            print(f"Saved TT results in {path_to_save}")
+            pd.DataFrame(res).to_csv(path_to_save)  # Note we save a checkpoint for every rank
 
 
 if __name__ == "__main__":
