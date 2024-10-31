@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.ticker as ticker
 
 from experiments.tt_experiments import TTDataTester
-from experiments.kroncker_experiments import KronckerDataTester
+from experiments.kroncker_experiments import KroneckerDataTester
 
 
 class AnalyzeResults:
@@ -33,7 +33,7 @@ class AnalyzeResults:
 
     @staticmethod
     def analyze_and_plot_kroncker_data(order):
-        data_path = KronckerDataTester.KRONCKER_DATA_PATH.format(order=order)
+        data_path = KroneckerDataTester.KRONCKER_DATA_PATH.format(order=order)
         res = pd.read_csv(data_path, index_col=0)
         passed_configs = res[(np.abs(res["sketch_score_1"] - 1) <= 0.1) &
                              (np.abs(res["sketch_score_2"] - 1) <= 0.1)]
@@ -61,10 +61,3 @@ class AnalyzeResults:
                                       err_style="bars", kind="line", ci=25)
         m_tn_tree_graph.set_axis_labels("Order", "Sketch Size")
         m_tn_tree_graph.savefig(f"./results/graphs/kroncker_m_tree_tn_graph.jpeg")
-
-
-
-if __name__ == "__main__":
-    AnalyzeResults.analyze_and_plot_tt_data(rank=70)
-    AnalyzeResults.analyze_and_plot_kroncker_data(order=10)
-    print("Saved graphs at:", "./results/graphs")

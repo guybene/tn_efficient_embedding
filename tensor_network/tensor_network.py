@@ -1,9 +1,7 @@
-from typing import List, Optional, Tuple, Dict
+from typing import List
 import numpy as np
 from tensornetwork import Node, Edge
 import tensornetwork as tn
-
-from numpy.linalg import norm
 
 
 class TensorNetwork:

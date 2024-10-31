@@ -10,12 +10,12 @@ from tensor_network.tensor_network import TensorNetwork
 from embeddings.efficient_gaussian_embedding import EfficientGaussianEmb
 
 
-class KronckerDataTester:
+class kroneckerDataTester:
 
-    KRONCKER_DATA_PATH = "results/kroncker_order_test/order_{order}_results.csv"
+    kronecker_DATA_PATH = "results/kronecker_order_test/order_{order}_results.csv"
 
-    def __init__(self, order: List[int], m_scalar_options: List[int], kroncker_sketch_sizes: List[int],
-                 kroncker_factor: List[int], dim_size=1000, embed_eps=0.2, embed_delta=0.95):
+    def __init__(self, order: List[int], m_scalar_options: List[int], kronecker_sketch_sizes: List[int],
+                 kronecker_factor: List[int], dim_size=1000, embed_eps=0.2, embed_delta=0.95):
         """
         Builds the parameters of the experiments
         :param order: The order to tensors to check for
@@ -23,30 +23,30 @@ class KronckerDataTester:
         :param dim_size: The dimension size for all dimensions
         :param embed_eps: The eps for the embedding
         :param embed_delta: The delta for the embedding
-        :param kroncker_sketch_sizes: The sketch sizes to check for the katri rao embeddings
-        :param kroncker_factor: We sub sketch with the kroncker structure with s_dim = m ** 1/n * kroncker_factors
+        :param kronecker_sketch_sizes: The sketch sizes to check for the katri rao embeddings
+        :param kronecker_factor: We sub sketch with the kronecker structure with s_dim = m ** 1/n * kronecker_factors
         """
         self.order = order
         self.m_scalar_options = m_scalar_options
         self.dim_size = dim_size
         self.embed_eps = embed_eps
         self.embed_delta = embed_delta
-        self.kroncker_sketch_sizes = kroncker_sketch_sizes
-        self.kroncker_factor = kroncker_factor
+        self.kronecker_sketch_sizes = kronecker_sketch_sizes
+        self.kronecker_factor = kronecker_factor
 
 
     def create_order_test_data(self, order) -> List[np.ndarray]:
         """
-        Creates the tensors that represent the kroncker structured data
+        Creates the tensors that represent the kronecker structured data
         :param order: The order of the data
-        :return: A list of tensors that represent the kroncker data
+        :return: A list of tensors that represent the kronecker data
         """
-        kroncker_data = [np.random.uniform(size=[self.dim_size] + [1] * (order-1)).astype(np.float32)]
+        kronecker_data = [np.random.uniform(size=[self.dim_size] + [1] * (order-1)).astype(np.float32)]
         for i in range(1, order):
-            kroncker_data.append(np.random.uniform(size=[1, self.dim_size]).astype(np.float32))
-        return kroncker_data
+            kronecker_data.append(np.random.uniform(size=[1, self.dim_size]).astype(np.float32))
+        return kronecker_data
 
-    def create_kroncker_network(self, Nodes: List[np.ndarray], order) -> Tuple[TensorNetwork, List]:
+    def create_kronecker_network(self, Nodes: List[np.ndarray], order) -> Tuple[TensorNetwork, List]:
         """
         Creates the actual network
         :param order: The order of the data to create
@@ -63,62 +63,62 @@ class KronckerDataTester:
 
         return TensorNetwork(v=nodes, edge_list=edges), contraction_path
 
-    def calc_kroncker_data_norm(self, krnocker_data: List[np.ndarray]):
+    def calc_kronecker_data_norm(self, krnocker_data: List[np.ndarray]):
         """
         Calculates the original tensor norm
-        :param krnocker_data: A list of the vectors tha tare part of a kroncker tensor network
-        :return: The norm of the full kroncker product
+        :param krnocker_data: A list of the vectors tha tare part of a kronecker tensor network
+        :return: The norm of the full kronecker product
         """
         norm = np.prod([np.linalg.norm(vec) for vec in krnocker_data])
         return norm
 
-    def _embed_and_eval_kroncker(self, kroncker_data: List[np.ndarray], m, s_factor):
+    def _embed_and_eval_kronecker(self, kronecker_data: List[np.ndarray], m, s_factor):
         """
-        Embeds with the kroncker structered embedding and evals the sketch error
-        :param kroncker_data: A list of tensors that represent a kroncker structured data
+        Embeds with the kronecker structered embedding and evals the sketch error
+        :param kronecker_data: A list of tensors that represent a kronecker structured data
         :param m: The sketch size to calcualte with the actuall sketching amtrix dims
         :param s_factor: The factor to multiply the sketch size
         :return: Sketch_score, sketch_cose and actual sketch_size
         """
-        sketch_size = ceil(pow(m, 1 / len(kroncker_data)) * s_factor)
-        embeded_tensor = np.random.randn(sketch_size, self.dim_size) @ kroncker_data[0].flat / np.sqrt(sketch_size)
-        for data in kroncker_data[1:]:
+        sketch_size = ceil(pow(m, 1 / len(kronecker_data)) * s_factor)
+        embeded_tensor = np.random.randn(sketch_size, self.dim_size) @ kronecker_data[0].flat / np.sqrt(sketch_size)
+        for data in kronecker_data[1:]:
             s_data = np.random.randn(sketch_size, self.dim_size) @ data.flat / np.sqrt(sketch_size)
             embeded_tensor = np.kron(embeded_tensor.astype(np.float32), s_data.astype(np.float32))
         embed_norm = np.linalg.norm(embeded_tensor)
         del embeded_tensor
-        orig_norm = self.calc_kroncker_data_norm(kroncker_data)
+        orig_norm = self.calc_kronecker_data_norm(kronecker_data)
         sketch_score = embed_norm / orig_norm
 
-        sketch_cost = len(kroncker_data) * sketch_size * self.dim_size  # The sketching cost
-        sketch_cost += sketch_size ** len(kroncker_data)  # Kroncker produdct
-        return sketch_score, sketch_cost, sketch_size ** len(kroncker_data)
+        sketch_cost = len(kronecker_data) * sketch_size * self.dim_size  # The sketching cost
+        sketch_cost += sketch_size ** len(kronecker_data)  # kronecker produdct
+        return sketch_score, sketch_cost, sketch_size ** len(kronecker_data)
 
 
-    def _embed_and_eval_TN(self, kroncker_data: List[np.ndarray], algo: EfficientGaussianEmb,
+    def _embed_and_eval_TN(self, kronecker_data: List[np.ndarray], algo: EfficientGaussianEmb,
                            network: TensorNetwork, contraction_path: List):
         """
         Embeds and evals the TN and Tree
-        :param kroncker_data: The tensors representing a kroncker data
+        :param kronecker_data: The tensors representing a kronecker data
         :param algo: The algo to embed with
         :param network: THe network to embed
         :param contraction_path: THe contraction path of the tensor network
         :return: The sketch error
         """
-        orig_norm = self.calc_kroncker_data_norm(kroncker_data)
+        orig_norm = self.calc_kronecker_data_norm(kronecker_data)
         embded_network = algo.embed(network, contraction_path)
         embeded_tensor = embded_network._v[0].tensor
         embed_norm = np.linalg.norm(embeded_tensor)
         return embed_norm/orig_norm
 
-    def run_tree_and_TN_on_kroncker(self, i, res, order, kroncker_data):
+    def run_tree_and_TN_on_kronecker(self, i, res, order, kronecker_data):
         """
         Runs an eperiment
         :param i: experiment index
         :param res: The results to update
         :param order: The order of the tensors
         :param contraction_path: The contraction path
-        :param kroncker_data: The data to run on
+        :param kronecker_data: The data to run on
         """
         for m_scalar in self.m_scalar_options:
             for is_TN in [True, False]:
@@ -129,37 +129,37 @@ class KronckerDataTester:
                                             m_scalar=m_scalar, is_tn_embedding=is_TN)
 
                 # First sketching try
-                network, contraction_path = self.create_kroncker_network(kroncker_data, order)
+                network, contraction_path = self.create_kronecker_network(kronecker_data, order)
                 chosen_m = algo.calc_m(network)
                 res["actual_m"].append(chosen_m)
                 tn = "TN" if is_TN else "Tree"
                 res["algo"].append(tn)
-                sketch_score = self._embed_and_eval_TN(kroncker_data, algo, network, contraction_path)
+                sketch_score = self._embed_and_eval_TN(kronecker_data, algo, network, contraction_path)
                 res["cost"].append(network.contractions_cost)
                 res["sketch_score_1"].append(sketch_score)
 
                 # Second Sketching Try
-                network, contraction_path = self.create_kroncker_network(kroncker_data, order)
-                sketch_score = self._embed_and_eval_TN(kroncker_data, algo, network, contraction_path)
+                network, contraction_path = self.create_kronecker_network(kronecker_data, order)
+                sketch_score = self._embed_and_eval_TN(kronecker_data, algo, network, contraction_path)
                 res["sketch_score_2"].append(sketch_score)
 
-    def run_katri_rao_on_kroncker(self, i, res, order, kroncker_data):
+    def run_katri_rao_on_kronecker(self, i, res, order, kronecker_data):
         """
         Runs the actual metrics on a single network with a specific order config
         :param i: The index of run insied the order batch
         :param res: The results to update
         :param order: THe order of the tensors
-        :param kroncker_data: The data representing kroncker data
+        :param kronecker_data: The data representing kronecker data
         """
-        for m in self.kroncker_sketch_sizes:
-            for s_factor in self.kroncker_factor:
+        for m in self.kronecker_sketch_sizes:
+            for s_factor in self.kronecker_factor:
                 res["order"].append(order)
                 res["batch_num"].append(i)
                 res["m_factor"].append(1)
                 res["algo"].append("katri_rao")
 
                 # First sketching try
-                sketch_score, contractions_cost, sketch_size = self._embed_and_eval_kroncker(kroncker_data,
+                sketch_score, contractions_cost, sketch_size = self._embed_and_eval_kronecker(kronecker_data,
                                                                                              m,
                                                                                              s_factor)
 
@@ -168,14 +168,14 @@ class KronckerDataTester:
                 res["sketch_score_1"].append(sketch_score)
 
                 # Second Sketching Try
-                sketch_score, contractions_cost, sketch_size = self._embed_and_eval_kroncker(kroncker_data,
+                sketch_score, contractions_cost, sketch_size = self._embed_and_eval_kronecker(kronecker_data,
                                                                                              m,
                                                                                              s_factor)
 
                 res["sketch_score_2"].append(sketch_score)
 
 
-    def run_kroncker_order_test_and_save(self) -> None:
+    def run_kronecker_order_test_and_save(self) -> None:
         """
         Runs the order test experiments and saves the results in a csv.
         Compares the execution for the TN and Tree embedding & katri-rao embeddings
@@ -188,19 +188,19 @@ class KronckerDataTester:
             print("Working on order:", order)
             for i in range(25):
                 print(f"{i}/25")
-                kroncker_data = self.create_order_test_data(order)
+                kronecker_data = self.create_order_test_data(order)
                 print("Working on katri-rao")
-                self.run_katri_rao_on_kroncker(i, res, order, kroncker_data)
+                self.run_katri_rao_on_kronecker(i, res, order, kronecker_data)
                 print("Working on TN")
-                self.run_tree_and_TN_on_kroncker(i, res, order, kroncker_data)
+                self.run_tree_and_TN_on_kronecker(i, res, order, kronecker_data)
 
-            # pd.DataFrame(res).to_csv(self.KRONCKER_DATA_PATH.format(order=order))  # Note we save a checkpoint for every order
+            # pd.DataFrame(res).to_csv(self.kronecker_DATA_PATH.format(order=order))  # Note we save a checkpoint for every order
 
 
 if __name__ == "__main__":
     order = [4, 6, 8, 10]
     m_scalar_options = [4, 5, 6, 7]
     katri_rao_sketch_sizes = [1000, 3000, 5000, 10 ** 4, 15000, 20000]
-    kroncker_data_tester = KronckerDataTester(order=order, m_scalar_options=m_scalar_options, kroncker_factor=[1,2],
-                                              kroncker_sketch_sizes=katri_rao_sketch_sizes)
-    kroncker_data_tester.run_kroncker_order_test_and_save()
+    kronecker_data_tester = kroneckerDataTester(order=order, m_scalar_options=m_scalar_options, kronecker_factor=[1,2],
+                                              kronecker_sketch_sizes=katri_rao_sketch_sizes)
+    kronecker_data_tester.run_kronecker_order_test_and_save()
