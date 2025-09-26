@@ -2,19 +2,20 @@ from typing import List, Tuple, Dict
 import numpy as np
 from itertools import permutations
 
+import tensornetwork as tn
+from tensornetwork import Node, Edge
 
-from tensor_network.tensor_network import TensorNetwork
-from tensor_network.tensor_network import Node, Edge
+from tensor_network.sym_tensor_network import SymmetricalTensorNetwork
 
-class EfficientGaussianEmb:
-    """
-    A class that represents an efficient gaussian embedding for a tensor network.
-    Implements the paper: https://arxiv.org/abs/2205.13163
-    """
 
-    def __init__(self, eps: float, delta: float, m_scalar: float, is_tn_embedding=False):
+class SymmetricMpoEmbedding:
+    #TODO: The code will only assume for now an MPO format tensor.
+    #TODO: The code doesn't check for D(e_j)
+
+
+    def __init__(self, eps: float, delta: float, m_scalar: float, is_tn_embedding=True):
         """
-        Creats the Efficient Gaussian Embedding object.
+        Creates the Efficient Gaussian Embedding object.
         The embedding is eps-delta accurate
         :param eps: The change in norm allowed for the sketching in a normalized vector
         :param delta: The probability for a higher change than epsilon
@@ -27,88 +28,93 @@ class EfficientGaussianEmb:
         self.m_scalar = m_scalar
         self.is_tn_embedding = is_tn_embedding
 
-    def calc_m(self, x: TensorNetwork):
+    def calc_m(self, x: SymmetricalTensorNetwork):
         """
         We calculate the dimension size to sketch with
         :return: The dimensions size to sketch to
         """
         m_theta = len(x.get_edges_to_sketch()) * np.log(1 / self.delta) / self.eps ** 2
         m = int(m_theta * self.m_scalar)
+        print(m)
         return max(m, 1)
 
-    def embed(self, x: TensorNetwork, contraction_path: List[Tuple[int, int]]) -> TensorNetwork:
+    def embed_mpo(self, x: SymmetricalTensorNetwork, contraction_path: List[Tuple[int, int]],m) -> SymmetricalTensorNetwork:
         """
-        Embeds the tensor x using the paper "Cost-efficient Gaussian tensor network embeddings
-        for tensor-structured inputs"
-        :param x: The tensor network to embed
+        Embeds the tensor network X, assumes that it is in MPO form, or PEPS. Shouldnt have any contractions not in S
+        :param x: The MPO/PEPS tensor network to embed
         :param contraction_path: The contraction path of x, T_0
         :return: An embedded tensor network
         """
-        edges_to_be_sketched = x.get_edges_to_sketch()
-        m = self.calc_m(x)
+        # m = self.calc_m(x)
 
-        D, S, I_S = self._partition_contractions(x, contraction_path, edges_to_be_sketched)
+        D, S_up, S_down, I_S = self._partition_contractions(x, contraction_path)
         self._contract_and_sketch_kronecker_product(x, D, m)
-        self._contract_and_sketch_tree_embedding(S, I_S, x, m)
+        self._contract_and_sketch_tree_embedding(S_up,S_down, I_S, x, m)
         return x
 
-    def _partition_contractions(self, x: TensorNetwork, contraction_path: List[Tuple[int, int]],
-                                edges_to_sketch):
+    def _partition_contractions(self, x: SymmetricalTensorNetwork, contraction_path: List[Tuple[int, int]]):
         """
         Partitions the contractions for the sketching algorithm
         :param x: The tensor network to sketch
         :param contraction_path: The contraction path for the tensor network
-        :param edges_to_sketch: Edges in E_1
         :return:  D - Dict of the format <i : List[Contractions]>. Where each tuple represents D(e_i)
-                  S - A list of contractions with both nodes having dimensions to be sketched
+                  S_up - A list of contractions with both nodes having upwards dimensions to be sketched
+                  S_down -  A list of contractions with both nodes having downward dimensions to be sketched
                   I_S - A list of contractions with no nodes to be sketched union with S
         """
-        D = {e: [] for e in edges_to_sketch}
-        S = []
+        dimensions_to_sketch = x.get_edges_to_sketch()
+        D = {e: [] for e in dimensions_to_sketch}
+
+        up_edges = set(x.get_upper_sketch_dimensions())
+        down_edges = set(x.get_lower_sketch_dimensions())
+
+        S_up = []
+        S_down = []
         I_S = []
 
         for contraction in contraction_path:
             u_i = x[contraction[0]]
             v_i = x[contraction[1]]
 
-            u_i_dangling = u_i.get_all_dangling()
-            v_i_dangling = v_i.get_all_dangling()
+            u_i_dangling_up = [e for e in u_i.get_all_dangling() if e in up_edges]
+            v_i_dangling_up = [e for e in v_i.get_all_dangling() if e in up_edges]
 
-            u_i_dims_to_sketch = len(u_i_dangling)
-            v_i_dims_to_sketch = len(v_i_dangling)
+            u_i_dims_to_sketch_up = len(u_i_dangling_up)
+            v_i_dims_to_sketch_up = len(v_i_dangling_up)
 
-            if u_i_dims_to_sketch == 1 and v_i_dims_to_sketch == 1:
-                S.append(contraction)
-                I_S.append(contraction)
-            elif u_i_dims_to_sketch == 1:
-                D[u_i_dangling[0]].append(contraction)
-            elif v_i_dims_to_sketch == 1:
-                D[v_i_dangling[0]].append(contraction)
-            else:
-                I_S.append(contraction)
-        return D, S, I_S
+            u_i_dangling_down = [e for e in u_i.get_all_dangling() if e in down_edges]
+            v_i_dangling_down = [e for e in v_i.get_all_dangling() if e in down_edges]
 
-    def _contract_and_sketch_kronecker_product(self, x: TensorNetwork, D: Dict[Edge, List[Tuple[int, int]]],
+            u_i_dims_to_sketch_down = len(u_i_dangling_down)
+            v_i_dims_to_sketch_down = len(v_i_dangling_down)
+
+
+            if u_i_dims_to_sketch_up == v_i_dims_to_sketch_up == 1:
+                S_up.append(contraction)
+
+            if u_i_dims_to_sketch_down == v_i_dims_to_sketch_down == 1:
+                S_down.append(contraction)
+            I_S.append(contraction)
+        return  D, S_up, S_down, I_S
+
+    def _contract_and_sketch_kronecker_product(self, x: SymmetricalTensorNetwork, D: Dict[Edge, List[Tuple[int, int]]],
                                                m: int) -> None:
         """
-        Sketcghes the kroncker product part of the algorithm and contracts when necessary
+        Sketches the kroncker product part of the algorithm and contracts when necessary
         :param x: The tensor network to contract
         :param D: A dict where each tuple represents D(e_i)
         :param m: sketch dimension size
         """
         for e, D_e_i in D.items():
-            if len(D_e_i) == 0:
-                x.kronecker_sketch(edge=e, m=m)
-            else:
-                e_i_hat_node_index = x.get_node_index(e.node1)
-                minimal_contraction_path = self._calculate_contraction_path_shapes(x, D_e_i, e_i_hat_node_index)
-                for i, j in minimal_contraction_path:
-                    if j is None:
-                        x.kronecker_sketch(edge=e, m=m)
-                    else:
-                        x.contract(i, j)
+            x.kronecker_sketch(edge=e, m=m)
+        del x.cached_kronecker_edges
+        del x._symmetry_map
+        del x._symmetry
+        del x._edges_to_sketch
 
-    def _calculate_contraction_path_shapes(self, x: TensorNetwork, D_e_i: List[Tuple[int, int]], i: int):
+
+
+    def _calculate_contraction_path_shapes(self, x: SymmetricalTensorNetwork, D_e_i: List[Tuple[int, int]], i: int):
         """
         Calculates for a list of contraction of the form D_e_i when to add the sketching so we will have a minimal
         sketching cost. i.e. how to contract the sub tensor network such that node_e_i has minimal size to sketch
@@ -169,21 +175,39 @@ class EfficientGaussianEmb:
         return min_U_size, min_index
 
 
-    def _contract_and_sketch_tree_embedding(self, S, I_S, x, m) -> None:
+    def _contract_and_sketch_tree_embedding(self, S_up, S_down,  I_S, x: SymmetricalTensorNetwork, m) -> None:
         """
-        Contracts and sketches the tree embedding part of the algorithm.
-        i.e. contractions in S are sketched in a specific way with a tree like embedding and contractions in
-        I are simply contracted
-        :param S: The contractions to be tree embedded
-        :param I_S: All contractions to make
-        :param x: The tensornetwork
-        :param m: The sketch dimension size
+        Assumes for now that all contraction are in S and all of them are both in S_up and S_down, like MPO or PEPS
         """
-        for i, j in I_S:
-            if (i, j) in S:
-                if self.is_tn_embedding:
-                    x.tn_sketch_and_contract_s(i, j, m)
-                else:
-                    x.tree_sketch_and_contract(i, j, m)
-            else:
-                x.contract(i, j)
+        for i, j in S_up:
+            x.sketch_and_contract_S_up_and_down(i, j, m)
+
+
+
+if __name__ == "__main__":
+
+
+    A = Node(np.ones((2,2,5)), name="A")
+    B = Node(np.ones((5,4,4,2)), name="B")
+    C = Node(np.ones((2,3,3,4)), name="C")
+    D = Node(np.ones((4,3,3)), name="D")
+
+
+
+    e1 = ((0,2), (1,0))
+    e2 = ((1,3), (2,0))
+    e3 = ((2,3),(3,0))
+
+    symmetry =   [((0,0), (0,1)), ((1,1), (1,2)), ((2,1),(2,2)), ((3,1),(3,2))]
+
+    contraction_path =  [(0,1), (1,2),(2,3)]
+
+    network = SymmetricalTensorNetwork([A,B,C, D], [e1, e2, e3], symmetry)
+
+    embedding = SymmetricMpoEmbedding(eps=0.1, delta=0.1, m_scalar=0.07)
+    mat = network.get_original_symmetrical_matrix()
+
+    result = embedding.embed_mpo(network,contraction_path)
+
+    print(np.trace(mat))
+    print(np.trace(result[0].tensor))

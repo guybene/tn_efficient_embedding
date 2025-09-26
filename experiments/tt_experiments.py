@@ -135,7 +135,7 @@ class TTDataTester:
 
 
 if __name__ == "__main__":
-    ranks = [2 ** i for i in range(2, 7)]
-    m_scalar_options = [3, 4, 5, 6, 7, 8]
+    ranks = [2 ** i for i in range(2,4)]
+    m_scalar_options = [3]
     tt_data_tester = TTDataTester(rank=ranks, m_scalar_options=m_scalar_options)
     tt_data_tester.run_rank_test_and_save()
