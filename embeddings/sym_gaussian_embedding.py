@@ -2,7 +2,6 @@ from typing import List, Tuple, Dict
 import numpy as np
 from itertools import permutations
 
-import tensornetwork as tn
 from tensornetwork import Node, Edge
 
 from tensor_network.sym_tensor_network import SymmetricalTensorNetwork
@@ -10,7 +9,7 @@ from tensor_network.sym_tensor_network import SymmetricalTensorNetwork
 
 class SymmetricMpoEmbedding:
     #TODO: The code will only assume for now an MPO format tensor.
-    #TODO: The code doesn't check for D(e_j)
+    #TODO: The code assumes all contraction are in S_1 and S_2
 
 
     def __init__(self, eps: float, delta: float, m_scalar: float, is_tn_embedding=True):
@@ -35,21 +34,23 @@ class SymmetricMpoEmbedding:
         """
         m_theta = len(x.get_edges_to_sketch()) * np.log(1 / self.delta) / self.eps ** 2
         m = int(m_theta * self.m_scalar)
-        print(m)
+        print(f"m calcaulted is: {m}")
         return max(m, 1)
 
-    def embed_mpo(self, x: SymmetricalTensorNetwork, contraction_path: List[Tuple[int, int]],m) -> SymmetricalTensorNetwork:
+    def embed_mpo(self, x: SymmetricalTensorNetwork, contraction_path: List[Tuple[int, int]],
+                  m_override: int =None) -> SymmetricalTensorNetwork:
         """
         Embeds the tensor network X, assumes that it is in MPO form, or PEPS. Shouldnt have any contractions not in S
         :param x: The MPO/PEPS tensor network to embed
         :param contraction_path: The contraction path of x, T_0
+        :
         :return: An embedded tensor network
         """
-        # m = self.calc_m(x)
+        m = self.calc_m(x) if not m_override else m_override
 
         D, S_up, S_down, I_S = self._partition_contractions(x, contraction_path)
         self._contract_and_sketch_kronecker_product(x, D, m)
-        self._contract_and_sketch_tree_embedding(S_up,S_down, I_S, x, m)
+        self._contract_and_sketch_tree_embedding(S_up, S_down, I_S, x, m_override)
         return x
 
     def _partition_contractions(self, x: SymmetricalTensorNetwork, contraction_path: List[Tuple[int, int]]):
@@ -107,10 +108,7 @@ class SymmetricMpoEmbedding:
         """
         for e, D_e_i in D.items():
             x.kronecker_sketch(edge=e, m=m)
-        del x.cached_kronecker_edges
-        del x._symmetry_map
-        del x._symmetry
-        del x._edges_to_sketch
+        x.delete_symmetry_relevant_caches()
 
 
 

@@ -412,3 +412,13 @@ class SymmetricalTensorNetwork:
         for i in range(len(self._v)):
             if self._v[i] in [u_orig, v_orig, v]:
                 self._v[i] = new_node
+
+    def delete_symmetry_relevant_caches(self) -> None:
+        """
+        Deletes the data saved in order to maintain symmetry, should be used only after kronecker embedding that requires
+        this data saved.
+        """
+        del self.cached_kronecker_edges
+        del self._symmetry_map
+        del self._symmetry
+        del self._edges_to_sketch
