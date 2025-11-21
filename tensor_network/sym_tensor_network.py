@@ -413,6 +413,25 @@ class SymmetricalTensorNetwork:
             if self._v[i] in [u_orig, v_orig, v]:
                 self._v[i] = new_node
 
+    def get_original_tensor(self) -> np.ndarray:
+        """
+        Gets the actual original tensor before embedding
+        :return: The original tensor
+        """
+        nodes_amount = len(self._original_tensor)
+        for i in range(nodes_amount):
+            u = self._original_tensor[i]
+            for j in range(i + 1, nodes_amount):
+                v = self._original_tensor[j]
+                if set(v.edges).intersection(set(u.edges)):
+                    uv = u @ v
+                    uv.set_name(u.name + "_" + v.name)
+                    self._original_tensor[i] = uv
+                    self._original_tensor[j] = uv
+        orig = self._original_tensor[-1].tensor
+        del self._original_tensor
+        return orig
+
     def delete_symmetry_relevant_caches(self) -> None:
         """
         Deletes the data saved in order to maintain symmetry, should be used only after kronecker embedding that requires

@@ -25,7 +25,7 @@ class SymmetricMpoEmbedding:
         self.eps = eps
         self.delta = delta
         self.m_scalar = m_scalar
-        self.is_tn_embedding = is_tn_embedding
+        self.is_tn_embedding = True
 
     def calc_m(self, x: SymmetricalTensorNetwork):
         """

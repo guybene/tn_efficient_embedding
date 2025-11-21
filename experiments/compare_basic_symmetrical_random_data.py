@@ -1,6 +1,6 @@
 from matplotlib.pyplot import legend
 
-from embeddings.sym_gaussian_embedding import SymmetricMpoEmbedding
+from embeddings.sym_mpo_gaussian_embedding import SymmetricMpoEmbedding
 from tensor_network.sym_tensor_network import SymmetricalTensorNetwork
 
 from tensornetwork import Node
@@ -28,20 +28,23 @@ def calc_trace(W):
     return ans
 
 
-def mps_to_symmetric_mpo(A, kind: str = "hermitian"):
+def mps_to_symmetric_mpo(A, p: int = None,kind: str = "hermitian"):
     """
     A[i]: (d, Dl, Dr)  ->  W[i]: (d, Dl, Dr, d)
     - 'hermitian':  W[s,a,b,t] = A[s,a,b] * conj(A[t,a,b])   (Hermitian on physical legs)
     - 'transpose':  0.5*(W + W^T_phys) to enforce matrix-transpose symmetry on (s,t)
+    - 'p': Calcaultes the powers of the tensor if wanted
     """
     W = []
     for Ai in A:
         d, Dl, Dr = Ai.shape
         Wi = np.einsum('sab,tab->sabt', Ai, Ai.conj(), optimize=True)  # (s,a,b,t)
-        if kind == "transpose":
-            Wi = 0.5 * (Wi + Wi.transpose(3,1,2,0))                    # sym under s↔t
-        elif kind != "hermitian":
-            raise ValueError("kind must be 'hermitian' or 'transpose'")
+        # if p:
+        #     W_temp = Wi.copy()
+        #     for i in range(2, p+1):
+        #         d, D, _, _ = Wi.shape
+        #         Wi = np.einsum('abcd, defg -> abcefg', Wi, W_temp, optimize=True)
+        #         Wi = Wi.reshape(d**(i+1), D**(i+1), D**(i+1), d**(i+1))
         W.append(Wi)
     return W
 
@@ -77,18 +80,19 @@ def calc_noa_trace(W):
 
 
 if __name__ == "__main__":
-    d = 50
-    D = 20 # will have bond D^2
-    M = 100
-    m = 30
-    N = 5
+    d = 4
+    D = 3 # will have bond D^2
+    M = 10
+    m = 3
+    N = 2
+    p = 3 # Calculate the power of an MPO
 
     rng = np.random.default_rng(10)
     names = string.ascii_uppercase
 
     A = [rng.standard_normal((d, D, D)) for _ in range(N)] # Create tensors
 
-    W = mps_to_symmetric_mpo(A, kind="hermitian")  # each Wi: (d, Dl, Dr, d)
+    W = mps_to_symmetric_mpo(A, p=p, kind="hermitian")  # each Wi: (d, Dl, Dr, d)
     W[0] = W[0][:,0,:,:]
     W[-1] = W[-1][:,0,:,:]
 
