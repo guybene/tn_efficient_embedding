@@ -1,14 +1,16 @@
 from typing import List, Dict, Type
 import numpy as np
 import string
+import os
 import opt_einsum as oe
 from tensornetwork import Node
 import matplotlib.pyplot as plt
 import matplotlib
 import tensornetwork as tn
-from scipy.sparse.linalg import eigsh
 from time import time
 from datetime import datetime
+
+from scipy.sparse.linalg import LinearOperator, eigsh
 
 # Adjust these imports to match your actual project structure
 from mpo_experiments.ISketch import Sketcher
@@ -17,7 +19,7 @@ from mpo_experiments.mpo_hutch import MpoHutch
 from mpo_experiments.plain_hutch import PlainHutch
 from mpo_experiments.tensor_sketcher import TensorSketcher
 
-matplotlib.use('Qt5Agg')
+matplotlib.use('Agg')
 plt.ion()
 
 
@@ -25,7 +27,7 @@ class ExperimentManager:
 
     def __init__(self, algos: List[Type[Sketcher]], d: int, D: int,
                  m_list: List[int], N_list: List[int], K_list: List[int],
-                 is_mpop: bool, M: int):
+                 is_mpop: bool, M: int, min_iteration: int):
         """
         :param algos: List of algorithm classes
         :param d: Physical dimension
@@ -35,12 +37,14 @@ class ExperimentManager:
         :param K_list: List of K values (MPOP power) to test
         :param is_mpop: Boolean flag for MPOP vs Symmetric trace
         :param M: Max iterations
+        :param min_iteration: The iteration to start plotting with, to skip beginning noise
         """
         self.d = d
         self.D = D
         self.is_mpop = is_mpop
         self.M = M
         self.algo_classes = algos
+        self.min_iteration = min_iteration
 
         # Base values (defaults when holding a parameter fixed)
         # We assume the first element of each list is the "default"
@@ -86,7 +90,44 @@ class ExperimentManager:
                 all_nodes.append(node)
         trace = tn.contractors.auto(all_nodes).tensor
         return trace
-    
+
+    @staticmethod
+    def get_eigenvalues_for_mpo_data_chat_version(mpo_nodes_data):
+        """
+        Calculates the largest eigenvalue efficiently using a LinearOperator.
+        """
+        N = len(mpo_nodes_data)
+        d = mpo_nodes_data[0].shape[-1]
+        dim_total = d ** N
+
+        def matvec(v):
+            v_tensor = v.reshape([d] * N)
+            v_node = tn.Node(v_tensor)
+            output_edges = [mpo_nodes_data[i][-1] for i in range(N)]
+            output_edges2 = [mpo_nodes_data[i][0] for i in range(N)]
+
+            for i in range(N - 1):
+                tn.connect(mpo_nodes_data[i][1], mpo_nodes_data[i + 1][-2])
+
+            for i in range(N):
+                tn.connect(mpo_nodes_data[i][0], v_node[i])
+
+            result_node = v_node
+            for i in range(N):
+                result_node = tn.contract_between(mpo_nodes_data[i], result_node)
+
+            # 6. Reorder edges to ensure (Site 0, Site 1, ..., Site N) standard order
+            result_node.reorder_edges(output_edges)
+
+            # 7. Flatten back to 1D vector for Scipy
+            return result_node.tensor.flatten()
+
+        # Define the Linear Operator
+        A = LinearOperator((dim_total, dim_total), matvec=matvec)
+
+        # Run Lanczos
+        eigenvalue = eigsh(A, k=1, return_eigenvectors=False)
+        return eigenvalue
 
     @staticmethod
     def get_eigenvalues_for_mpo_data(mpo_tensors):
@@ -102,7 +143,7 @@ class ExperimentManager:
             mpo_tensors[i][-2] ^ mpo_tensors[i + 1][1]
         contracted_tensor = tn.contractors.auto(mpo_tensors, output_edge_order=up_dims + down_dims)
         tensor_mat = contracted_tensor.tensor.reshape(d ** len(mpo_tensors), d ** len(mpo_tensors))
-        eigen_vals = eigsh(tensor_mat, which='LM', return_eigenvectors=False)
+        eigen_vals = eigsh(tensor_mat, k=1, which='LM', return_eigenvectors=False)
         return eigen_vals
 
     def generate_data(self, N, K) -> List[List[Node]]:
@@ -123,7 +164,7 @@ class ExperimentManager:
         largest_eigen_val = None
         for _ in range(K):
             # 1. Create random tensors A
-            A = [np.random.randn(*size) for _ in range(N)]
+            A = [np.random.randn(*size).astype(np.float32) for _ in range(N)]
 
             # 2. Convert to symmetric MPO tensors W
             W = []
@@ -140,10 +181,9 @@ class ExperimentManager:
 
             # 5. Normalize
             if largest_eigen_val is None or not self.is_mpop:
-                largest_eigen_val = ExperimentManager.get_eigenvalues_for_mpo_data(nodes)[-1]
-            normalize_factor = largest_eigen_val ** (1 / N)
-            normalized_nodes = [node / normalize_factor for node in nodes]
-
+                largest_eigen_val = ExperimentManager.get_eigenvalues_for_mpo_data(nodes)[0]
+            factor = largest_eigen_val ** (1 / N)
+            normalized_nodes = [Node(node.tensor / factor, name=node.name) for node in nodes]
             results.append(normalized_nodes)
 
         # Make the actual tensor symmetric again by taking A B C -> A B C B A
@@ -201,93 +241,129 @@ class ExperimentManager:
                 tn.connect(copied_data[k][j][-2], copied_data[k][j + 1][1])
         return copied_data
 
-    def draw_graphs(self):
-        nrows = len(self.definitions)
-        # Determine ncols by finding the maximum number of values in any variation list
-        ncols = max(len(d['values']) for d in self.definitions)
-
-        # Create subplots: One row per definition, One column per value tested
-        # Width adjusts dynamically based on how many columns we have
-        fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 5 * nrows), squeeze=False)
-        fig_iter, axes_iter = plt.subplots(nrows, ncols, figsize=(5 * ncols, 5 * nrows), squeeze=False)
-
+    def draw_graphs(self, plot_errors=True, plot_variance=True):
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        title = f"MPO Sketching Results ({timestamp}),\n d:{self.d}, D:{self.D}, M:{self.M}, MPOP:{self.is_mpop}"
-        fig.suptitle(title, fontsize=14)
-        fig_iter.suptitle(title, fontsize=14)
+        base_dir = "../mpo_experiments/experiment_results"
+        save_folder = os.path.join(base_dir, timestamp)
+        os.makedirs(save_folder, exist_ok=True)
+        print(f"Saving results to: {save_folder}")
 
-        for row_idx, definition in enumerate(self.definitions):
+        info_title = f"d:{self.d}, D:{self.D}, M:{self.M}, MPOP:{self.is_mpop}"
+
+        # 2. Iterate over each definition (Vary m, Vary N, Vary K)
+        for idx, definition in enumerate(self.definitions):
             vary_name = definition['vary']
             fixed_params = definition['fixed']
-            values = definition['values']
-            row_data = self.results[row_idx]
+            values = sorted(definition['values'])  # Ensure sorted order for plots
+            row_data = self.results[idx]
 
-            # Build label for the row (fixed parameters)
+            # Formatted string for fixed parameters
             fixed_str = ", ".join([f"{k}={v}" for k, v in fixed_params.items()])
-            row_label_text = f"Varying {vary_name}\n[{fixed_str}]"
 
-            for col_idx in range(ncols):
-                ax = axes[row_idx][col_idx]
-                ax_iter = axes_iter[row_idx][col_idx]
+            # --- PREPARE DATA AGGREGATION ---
+            # We need this for both error loops (to plot lines) and variance (to calculate var)
+            algo_variance_map = {}  # {algo_name: [var_val1, var_val2...]}
 
-                # Check if this row has a value for this column (handles lists of different lengths)
-                if col_idx < len(values):
-                    val = values[col_idx]
+            # Initialize figures only if needed
+            fig_time, ax_time = None, None
+            fig_iter, ax_iter = None, None
+            fig_var, ax_var = None, None
 
-                    # Retrieve data for this specific value (e.g., m=5)
-                    val_data = row_data[val]
+            if plot_errors:
+                nrows = len(values)
+                # Dynamic width: 5 inches per subplot
+                fig_time, ax_time = plt.subplots(nrows, 1, figsize=(5 * nrows, 5), squeeze=False)
+                fig_iter, ax_iter = plt.subplots(nrows, 1, figsize=(5 * nrows, 5), squeeze=False)
 
-                    # Plot each algorithm for this specific parameter setting
-                    for algo_name, res in val_data.items():
-                        start = 100
+                fig_time.suptitle(f"Time vs Error: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
+                fig_iter.suptitle(f"Iter vs Error: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
+
+            if plot_variance:
+                fig_var, ax_var = plt.subplots(1, 1, figsize=(8, 6))
+                ax_var.set_title(f"Variance Analysis: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
+
+            # --- MAIN LOOP OVER VALUES (e.g., m=1, m=2...) ---
+            for row, val in enumerate(values):
+                if val not in row_data:
+                    continue
+
+                val_data = row_data[val]
+
+                # Get specific axes for this value if plotting errors
+                curr_ax_time = ax_time[row][0] if plot_errors else None
+                curr_ax_iter = ax_iter[row][0] if plot_errors else None
+
+                # Iterate Algos
+                for algo_name, res in val_data.items():
+                    # --- A. ERROR PLOTS ---
+                    if plot_errors:
+                        start = self.min_iteration
                         step = 1
-                        if len(res['error']) < start: start = 0  # Safety fallback
 
                         errors = res['error'][start::step]
-                        time = res["time"][start::step]
-
+                        times = res["time"][start::step]
                         iterations = np.arange(len(errors)) * step + start
 
-                        ax.plot(time, errors, label=algo_name)
-                        ax_iter.plot(iterations, errors, label=algo_name)
+                        curr_ax_time.plot(times, errors, label=algo_name)
+                        curr_ax_iter.plot(iterations, errors, label=algo_name)
 
+                    # --- B. VARIANCE CALCULATION (Always calculate if plotting variance) ---
+                    if plot_variance:
+                        if algo_name not in algo_variance_map:
+                            algo_variance_map[algo_name] = []
 
-                    # Subplot Formatting
-                    ax.set_title(f"{vary_name} = {val}")
-                    ax.grid(True, which="both", ls="-", alpha=0.5)
-                    ax.legend(fontsize='x-small')
-                    ax_iter.set_title(f"{vary_name} = {val}")
-                    ax_iter.grid(True, which="both", ls="-", alpha=0.5)
-                    ax_iter.legend(fontsize='x-small')
+                        raw_predictions = np.array(res['prediction'])
+                        variance = np.var(raw_predictions)
+                        algo_variance_map[algo_name].append(variance)
 
-                    # Labels: Only add Y-label to the first column, X-label to the last row
-                    if col_idx == 0:
-                        ax.set_ylabel(f"{row_label_text}\nError")
-                        ax_iter.set_ylabel(f"{row_label_text}\nError")
-                    if row_idx == nrows - 1:
-                        ax.set_xlabel("Time")
-                        ax_iter.set_xlabel("Iterations")
+                # Subplot Formatting (Error Plots)
+                if plot_errors:
+                    curr_ax_time.set_title(f"{vary_name} = {val}")
+                    curr_ax_time.set_xlabel("Time (s)")
+                    curr_ax_time.grid(True, alpha=0.5)
 
+                    curr_ax_iter.set_title(f"{vary_name} = {val}")
+                    curr_ax_iter.set_xlabel("Iterations")
+                    curr_ax_iter.grid(True, alpha=0.5)
 
-                else:
-                    # If the list is shorter than ncols, hide the empty axis
-                    ax.axis('off')
-                    ax_iter.axis('off')
+                    if row == 0:
+                        curr_ax_time.set_ylabel("Error")
+                        curr_ax_iter.set_ylabel("Error")
+                        curr_ax_time.legend(fontsize='small')
+                        curr_ax_iter.legend(fontsize='small')
 
+            # --- SAVE ERROR PLOTS ---
+            if plot_errors:
+                fig_time.tight_layout(rect=[0, 0.03, 1, 0.90])
+                fig_iter.tight_layout(rect=[0, 0.03, 1, 0.90])
 
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-        fig_iter.tight_layout(rect=[0, 0.03, 1, 0.95])
+                path_time = os.path.join(save_folder, f"{vary_name}_time_error.png")
+                path_iter = os.path.join(save_folder, f"{vary_name}_iter_error.png")
 
-        file_name_time = f"experiment_scenarios_{timestamp}_time.png"
-        file_name_iterations = f"experiment_scenarios_{timestamp}_iterations.png"
+                fig_time.savefig(path_time)
+                fig_iter.savefig(path_iter)
+                plt.close(fig_time)
+                plt.close(fig_iter)
 
-        save_path_time = f"../mpo_experiments/experiment_results/{file_name_time}"
-        save_path_iterations = f"../mpo_experiments/experiment_results/{file_name_iterations}"
+            # --- PLOT & SAVE VARIANCE ---
+            if plot_variance:
+                for algo_name, var_values in algo_variance_map.items():
+                    # Slice values just in case data is missing for some points
+                    ax_var.plot(values[:len(var_values)], var_values, marker='o', label=algo_name)
 
-        fig.savefig(save_path_time)
-        fig_iter.savefig(save_path_iterations)
+                ax_var.set_xlabel(f"{vary_name}")
+                ax_var.set_ylabel("Variance")
+                ax_var.grid(True, alpha=0.5)
+                ax_var.legend()
 
-    def run(self, timer_cap=None) -> None:
+                # ax_var.set_yscale('log') # Uncomment if you want log scale
+
+                fig_var.tight_layout(rect=[0, 0.03, 1, 0.90])
+                path_var = os.path.join(save_folder, f"{vary_name}_variance.png")
+                fig_var.savefig(path_var)
+                plt.close(fig_var)
+
+    def run(self, timer_cap=None, plot_errors=True, plot_variance=True) -> None:
         """
         Runs the experiment scenarios defined in __init__.
         Skips execution if the exact (m, N, K) configuration has already been run.
@@ -331,8 +407,7 @@ class ExperimentManager:
                     data = self.generate_data(N=N, K=K)
                     effective_K_trace = len(data)
 
-                    # Calculate True Trace
-                    trace = self.actual_trace(data, N, effective_K_trace)
+                    trace = self.actual_trace(data, N, K)
 
                     # Initialize Algorithms
                     current_algos = []
@@ -350,7 +425,7 @@ class ExperimentManager:
 
                     for algo in current_algos:
                         algo_name = str(algo)
-                        val_results[algo_name] = {'error': [], 'time': []}
+                        val_results[algo_name] = {'error': [], 'prediction': [], 'time': []}
 
                         algo_accumulate = 0
                         algo_time_counter = 0
@@ -365,14 +440,17 @@ class ExperimentManager:
                             curr_mpos = self.connect_mpo_from_data(data, N, effective_K_trace)
 
                             start = time()
-                            algo_accumulate += algo.sketch(curr_mpos)
+                            algo_prediction = algo.sketch(curr_mpos)
+                            algo_accumulate += algo_prediction
                             algo_time_counter += time() - start
 
                             # Relative Error
-                            error = (trace - algo_accumulate / i) / trace
+                            error = (trace - algo_accumulate / i) / abs(trace)
 
+                            val_results[algo_name]['prediction'].append(algo_prediction)
                             val_results[algo_name]['error'].append(error)
                             val_results[algo_name]['time'].append(algo_time_counter)
+
                             i += 1
 
                     # 3. Store new results in cache
@@ -384,29 +462,28 @@ class ExperimentManager:
             # Save all results for this row definition
             self.results.append(row_results)
 
-        # Finally, draw
-        self.draw_graphs()
+        self.draw_graphs(plot_errors, plot_variance)
 
 
 def main():
-    d = 5
-    D = 4
+    d = 2
+    D = 3
     is_mpop = True
-    M = 5000
+    M = 500
 
     # Define lists for parameters
     # Row 1 will use defaults for N, K (N=5, K=1) and vary m
-    m_list = [2]
-    N_list = [3,4]
-    K_list = [2,3]
+    m_list = list(range(1, 25,1))
+    N_list = list(range(3, 4))
+    K_list = list(range(1, 2))
 
-    algos = [KronHutch]
+    algos = [PlainHutch, KronHutch, MpoHutch, TensorSketcher]
     timer_cap = None
 
     experiment = ExperimentManager(algos=algos, d=d, D=D,
                                    m_list=m_list, N_list=N_list, K_list=K_list,
-                                   is_mpop=is_mpop, M=M)
-    experiment.run(timer_cap=timer_cap)
+                                   is_mpop=is_mpop, M=M, min_iteration=100)
+    experiment.run(timer_cap=timer_cap, plot_errors=False, plot_variance=True)
 
 
 if __name__ == "__main__":

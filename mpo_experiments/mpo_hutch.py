@@ -12,13 +12,13 @@ class MpoHutch(Sketcher):
         N = self.N
         K = self.K
 
-        bounding_sketch_data = [np.random.randn(self.d, self.m) / np.sqrt(self.m) for _ in range(N)]
+        bounding_sketch_data = [np.random.randn(self.d, self.m).astype(np.float32) / (self.m ** 0.5) for _ in range(N)]
         lower_sketch_data = [data.copy() for data in bounding_sketch_data]
 
-        curr_mat = np.eye(self.m ** self.N)
+        curr_mat = np.eye(self.m ** self.N).astype(np.float32)
         for i, mpo in enumerate(mpos):
             if i != K - 1 and K != 1:
-                upper_sketch_data = [np.random.randn(self.d, self.m) / np.sqrt(self.m) for _ in range(N)]
+                upper_sketch_data = [np.random.randn(self.d, self.m).astype(np.float32) / (self.m ** 0.5) for _ in range(N)]
             else:
                 upper_sketch_data = bounding_sketch_data
             sketch_results = []

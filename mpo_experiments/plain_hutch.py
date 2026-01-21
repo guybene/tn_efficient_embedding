@@ -16,7 +16,7 @@ class PlainHutch(Sketcher):
         4. Returns v.T @ M @ v.
         """
         dim = self.d ** self.N
-        v = np.random.randint(0, 2, size=dim) * 2 - 1
+        v = np.random.randint(0, 2, size=dim, dtype=np.int8) * 2 - 1
 
         # 2. Accumulate Results
         if not hasattr(self, "total_matrix"):
@@ -42,11 +42,8 @@ class PlainHutch(Sketcher):
             tn.flatten_edges(up_edges)
             tn.flatten_edges(down_edges)
 
-            total_matrix = contracted.tensor
-            self.total_matrix = total_matrix
-        else:
-            total_matrix = self.total_matrix
-        return v.T @ total_matrix @ v
+            self.total_matrix = contracted.tensor
+        return v.T @ self.total_matrix @ v
 
     def __str__(self):
         return "Plain Hutch"
