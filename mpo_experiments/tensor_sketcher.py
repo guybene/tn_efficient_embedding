@@ -3,7 +3,7 @@ from tensornetwork import Node
 import tensornetwork as tn
 
 from mpo_experiments.ISketch import Sketcher
-
+DTYPE = np.float64
 
 class TensorSketcher(Sketcher):
     """
@@ -31,8 +31,8 @@ class TensorSketcher(Sketcher):
 
     def create_embedding_tree(self, name, v1_dim, v2_dim):
         m = self.m
-        v_1 = np.random.randn(m, v1_dim, m).astype(np.float32) / np.sqrt(m) #Assume (up,mid,down)
-        v_2 = np.random.randn(m, v2_dim, m).astype(np.float32) / np.sqrt(m)
+        v_1 = np.random.randn(m, v1_dim, m).astype(DTYPE) / np.sqrt(m) #Assume (up,mid,down)
+        v_2 = np.random.randn(m, v2_dim, m).astype(DTYPE) / np.sqrt(m)
 
         v_1 = Node(v_1, name=name + "_A")
         v_2 = Node(v_2, name=name + "_B")
@@ -69,8 +69,8 @@ class TensorSketcher(Sketcher):
         # These project the physical dimension 'd' down to 'm'.
         for i in range(self.N):
             # Normalized Gaussian initialization
-            matrix_data = np.random.randn(self.d, self.m).astype(np.float32) / np.sqrt(self.m)
-            matrix_data = matrix_data.astype(np.float32)
+            matrix_data = np.random.randn(self.d, self.m).astype(DTYPE) / np.sqrt(self.m)
+            matrix_data = matrix_data.astype(DTYPE)
             leaf = tn.Node(matrix_data, name=f"Leaf_{i}")
 
             leaves.append(leaf)
@@ -272,7 +272,7 @@ class TensorSketcher(Sketcher):
             s_curr_nodes, s_curr_phys, s_curr_final
         )
 
-        accumulated_matrix = np.eye(self.m, dtype=np.float32)
+        accumulated_matrix = np.eye(self.m, dtype=DTYPE)
         current_bottom_edge = None  # Tracks the open edge at bottom of accumulator
 
         for k in range(self.K):

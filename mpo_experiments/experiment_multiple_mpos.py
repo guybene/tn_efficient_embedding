@@ -9,6 +9,7 @@ import matplotlib
 import tensornetwork as tn
 from time import time
 from datetime import datetime
+import pickle as pkl
 
 from scipy.sparse.linalg import LinearOperator, eigsh
 
@@ -227,7 +228,7 @@ class ExperimentManager:
         path, path_info = oe.contract_path(*einsum_args, [], optimize=optimize_type)
         return path, path_info
 
-    def connect_mpo_from_data(self, data, N, K):
+    def connect_mpo_from_data(self, data, N):
         """
         Connects MPO nodes for sketching.
         Must operate on copies to preserve original data for next iteration.
@@ -241,13 +242,7 @@ class ExperimentManager:
                 tn.connect(copied_data[k][j][-2], copied_data[k][j + 1][1])
         return copied_data
 
-    def draw_graphs(self, plot_errors=True, plot_variance=True):
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        base_dir = "../mpo_experiments/experiment_results"
-        save_folder = os.path.join(base_dir, timestamp)
-        os.makedirs(save_folder, exist_ok=True)
-        print(f"Saving results to: {save_folder}")
-
+    def draw_graphs(self, save_folder, plot_errors=True, plot_variance=True):
         info_title = f"d:{self.d}, D:{self.D}, M:{self.M}, MPOP:{self.is_mpop}"
 
         # 2. Iterate over each definition (Vary m, Vary N, Vary K)
@@ -270,11 +265,10 @@ class ExperimentManager:
             fig_var, ax_var = None, None
 
             if plot_errors:
-                nrows = len(values)
+                ncols = len(values)
                 # Dynamic width: 5 inches per subplot
-                fig_time, ax_time = plt.subplots(nrows, 1, figsize=(5 * nrows, 5), squeeze=False)
-                fig_iter, ax_iter = plt.subplots(nrows, 1, figsize=(5 * nrows, 5), squeeze=False)
-
+                fig_time, ax_time = plt.subplots(1, ncols, figsize=(5 * ncols, 5), squeeze=False, sharey=True)
+                fig_iter, ax_iter = plt.subplots(1, ncols, figsize=(5 * ncols, 5), squeeze=False, sharey=True)
                 fig_time.suptitle(f"Time vs Error: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
                 fig_iter.suptitle(f"Iter vs Error: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
 
@@ -283,15 +277,15 @@ class ExperimentManager:
                 ax_var.set_title(f"Variance Analysis: Varying {vary_name} ({fixed_str})\n{info_title}", fontsize=12)
 
             # --- MAIN LOOP OVER VALUES (e.g., m=1, m=2...) ---
-            for row, val in enumerate(values):
+            for col_idx, val in enumerate(values):
                 if val not in row_data:
                     continue
 
                 val_data = row_data[val]
 
                 # Get specific axes for this value if plotting errors
-                curr_ax_time = ax_time[row][0] if plot_errors else None
-                curr_ax_iter = ax_iter[row][0] if plot_errors else None
+                curr_ax_time = ax_time[0][col_idx] if plot_errors else None
+                curr_ax_iter = ax_iter[0][col_idx] if plot_errors else None
 
                 # Iterate Algos
                 for algo_name, res in val_data.items():
@@ -326,7 +320,7 @@ class ExperimentManager:
                     curr_ax_iter.set_xlabel("Iterations")
                     curr_ax_iter.grid(True, alpha=0.5)
 
-                    if row == 0:
+                    if col_idx == 0:
                         curr_ax_time.set_ylabel("Error")
                         curr_ax_iter.set_ylabel("Error")
                         curr_ax_time.legend(fontsize='small')
@@ -363,11 +357,19 @@ class ExperimentManager:
                 fig_var.savefig(path_var)
                 plt.close(fig_var)
 
-    def run(self, timer_cap=None, plot_errors=True, plot_variance=True) -> None:
+    def run(self, backup_file=False, timer_cap=None, plot_errors=True, plot_variance=True) -> None:
         """
         Runs the experiment scenarios defined in __init__.
         Skips execution if the exact (m, N, K) configuration has already been run.
         """
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        base_dir = "../mpo_experiments/experiment_results"
+        save_folder = os.path.join(base_dir, timestamp)
+        os.makedirs(save_folder, exist_ok=True)
+        print(f"Saving results to: {save_folder}")
+
+        pickle_file = os.path.join(save_folder, "experiment_backup")
+
         # Dictionary to cache results: Key=(m, N, K), Value=val_results
         experiment_cache = {}
 
@@ -437,7 +439,7 @@ class ExperimentManager:
                             if i % 1000 == 0:
                                 print(i)
                             # Re-connect fresh copies for sketching
-                            curr_mpos = self.connect_mpo_from_data(data, N, effective_K_trace)
+                            curr_mpos = self.connect_mpo_from_data(data, N)
 
                             start = time()
                             algo_prediction = algo.sketch(curr_mpos)
@@ -458,32 +460,34 @@ class ExperimentManager:
 
                 # Assign results (either cached or new) to the current row
                 row_results[val] = val_results
+                if backup_file:
+                    with open(pickle_file + f"_{vary_name}.pkl", "wb") as f:
+                        pkl.dump(row_results, f)
 
             # Save all results for this row definition
             self.results.append(row_results)
 
-        self.draw_graphs(plot_errors, plot_variance)
+        self.draw_graphs(save_folder,plot_errors, plot_variance)
 
 
 def main():
     d = 2
-    D = 3
+    D = 1
     is_mpop = True
-    M = 500
+    M = 350000
 
     # Define lists for parameters
-    # Row 1 will use defaults for N, K (N=5, K=1) and vary m
-    m_list = list(range(1, 25,1))
-    N_list = list(range(3, 4))
-    K_list = list(range(1, 2))
+    m_list = [1]
+    N_list = list(range(3,4))
+    K_list = list(range(4,5))
 
-    algos = [PlainHutch, KronHutch, MpoHutch, TensorSketcher]
+    algos = [TensorSketcher]
     timer_cap = None
 
     experiment = ExperimentManager(algos=algos, d=d, D=D,
                                    m_list=m_list, N_list=N_list, K_list=K_list,
-                                   is_mpop=is_mpop, M=M, min_iteration=100)
-    experiment.run(timer_cap=timer_cap, plot_errors=False, plot_variance=True)
+                                   is_mpop=is_mpop, M=M, min_iteration=1000)
+    experiment.run(backup_file=True, timer_cap=timer_cap, plot_errors=True, plot_variance=True)
 
 
 if __name__ == "__main__":
