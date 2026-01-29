@@ -7,7 +7,6 @@ from mpo_experiments.ISketch import Sketcher
 class KronHutch(Sketcher):
 
     def sketch(self, mpos):
-        self.m = 1
         sketch_matrices = [np.random.randn(self.d, self.m).astype(np.float32) / (self.m**0.5) for _ in range(self.N)]
 
         up_nodes = [Node(data) for data in sketch_matrices]
