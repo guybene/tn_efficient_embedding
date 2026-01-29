@@ -15,9 +15,6 @@ class KronHutch(Sketcher):
         up_edges = [node[-1] for node in up_nodes]
         down_edges = [node[-1] for node in down_nodes]
 
-
-
-
         for k in range(len(mpos) - 1):
             for j in range(len(mpos[k])):
                 tn.connect(mpos[k][j][-1], mpos[k + 1][j][0])
@@ -42,10 +39,9 @@ class KronHutch(Sketcher):
             contracted = tn.contract_between(contracted,
                                              contract_mpop[i])
 
-        tn.flatten_edges(up_edges)
-        tn.flatten_edges(down_edges)
+        contracted.reorder_edges(up_edges + down_edges)
 
-        total_matrix = contracted.tensor
+        total_matrix = contracted.tensor.reshape(self.m ** self.N, self.m ** self.N)
         return np.trace(total_matrix)
 
 

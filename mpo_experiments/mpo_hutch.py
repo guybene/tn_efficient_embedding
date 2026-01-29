@@ -43,6 +43,7 @@ class MpoHutch(Sketcher):
             for i in range(1,len(sketch_results)):
                 mpo_sketched_node = tn.contract_between(mpo_sketched_node,
                                                         sketch_results[i])
+            mpo_sketched_node.reorder_edges(upper_edges + lower_edges)
             mpo_sketched_mat = mpo_sketched_node.tensor.reshape(self.m ** self.N, self.m ** self.N)
             curr_mat @= mpo_sketched_mat
             lower_sketch_data = upper_sketch_data
