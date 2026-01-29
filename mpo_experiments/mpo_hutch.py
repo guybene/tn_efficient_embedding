@@ -8,6 +8,7 @@ from mpo_experiments.ISketch import Sketcher
 class MpoHutch(Sketcher):
 
     def sketch(self, mpos):
+        self.m=1
         d = self.d
         N = self.N
         K = self.K
