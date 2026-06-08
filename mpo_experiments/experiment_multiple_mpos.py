@@ -93,44 +93,6 @@ class ExperimentManager:
         return trace
 
     @staticmethod
-    def get_eigenvalues_for_mpo_data_chat_version(mpo_nodes_data):
-        """
-        Calculates the largest eigenvalue efficiently using a LinearOperator.
-        """
-        N = len(mpo_nodes_data)
-        d = mpo_nodes_data[0].shape[-1]
-        dim_total = d ** N
-
-        def matvec(v):
-            v_tensor = v.reshape([d] * N)
-            v_node = tn.Node(v_tensor)
-            output_edges = [mpo_nodes_data[i][-1] for i in range(N)]
-            output_edges2 = [mpo_nodes_data[i][0] for i in range(N)]
-
-            for i in range(N - 1):
-                tn.connect(mpo_nodes_data[i][1], mpo_nodes_data[i + 1][-2])
-
-            for i in range(N):
-                tn.connect(mpo_nodes_data[i][0], v_node[i])
-
-            result_node = v_node
-            for i in range(N):
-                result_node = tn.contract_between(mpo_nodes_data[i], result_node)
-
-            # 6. Reorder edges to ensure (Site 0, Site 1, ..., Site N) standard order
-            result_node.reorder_edges(output_edges)
-
-            # 7. Flatten back to 1D vector for Scipy
-            return result_node.tensor.flatten()
-
-        # Define the Linear Operator
-        A = LinearOperator((dim_total, dim_total), matvec=matvec)
-
-        # Run Lanczos
-        eigenvalue = eigsh(A, k=1, return_eigenvectors=False)
-        return eigenvalue
-
-    @staticmethod
     def get_eigenvalues_for_mpo_data(mpo_tensors):
         """
         Assumes the tensors are shaped (up,bond,down), (up, bond, bond, down) and are not yet connected
@@ -147,6 +109,38 @@ class ExperimentManager:
         eigen_vals = eigsh(tensor_mat, k=1, which='LM', return_eigenvectors=False)
         return eigen_vals
 
+    def generate_identity_mpos(self, K, N):
+        import numpy as np
+        import string
+
+        names = string.ascii_uppercase
+        results = []
+
+        # 1. Construct the base Identity tensor for the MPO
+        # Shape: (d, left_bond, right_bond, d)
+        W_identity = np.zeros((self.d, self.D, self.D, self.d), dtype=np.float64)
+
+        # Pass the identity matrix through the physical dimensions (i, i)
+        # while restricted to the 0-th channel of the bond dimensions (0, 0).
+        for i in range(self.d):
+            W_identity[i, 0, 0, i] = 1.0
+
+        # 2. Determine how many total MPOs you need.
+        total_mpos = K if self.is_mpop else (2 * K - 1)
+
+        for _ in range(total_mpos):
+            # Create N copies of the identity tensor
+            W = [W_identity.copy() for _ in range(N)]
+
+            # 3. Apply the endpoint slicing exactly as your original code did
+            W[0] = W[0][:, 0, :, :]
+            W[-1] = W[-1][:, 0, :, :]
+
+            # 4. Wrap the tensors in your Node objects
+            nodes = [Node(W[i], name=names[i % len(names)]) for i in range(N)]
+            results.append(nodes)
+
+        return results
     def generate_data(self, N, K) -> List[List[Node]]:
         """
         Generates K symmetrical MPOs with the specified parameters.
@@ -158,14 +152,13 @@ class ExperimentManager:
         Returns:
             list: A list of K items, where each item is a list of [Node, Node, ...].
         """
-        np.random.seed(10)
         names = string.ascii_uppercase
         results = []
         size = (self.d, self.D, self.D)
         largest_eigen_val = None
         for _ in range(K):
             # 1. Create random tensors A
-            A = [np.random.randn(*size).astype(np.float32) for _ in range(N)]
+            A = [np.random.randn(*size).astype(np.float64) for _ in range(N)]
 
             # 2. Convert to symmetric MPO tensors W
             W = []
@@ -233,7 +226,7 @@ class ExperimentManager:
         Connects MPO nodes for sketching.
         Must operate on copies to preserve original data for next iteration.
         """
-        copied_data = [[Node(n.tensor) for n in mpo] for mpo in data]
+        copied_data = [[Node(n.tensor.copy()) for n in mpo] for mpo in data]
 
         effective_K = len(copied_data)
 
@@ -357,8 +350,10 @@ class ExperimentManager:
                 fig_var.savefig(path_var)
                 plt.close(fig_var)
 
-    def run(self, backup_file=False, timer_cap=None, plot_errors=True, plot_variance=True) -> None:
+    def run(self, backup_file=False, timer_cap=None, plot_errors=True, plot_variance=True,
+            use_data=True) -> None:
         """
+        :param use_data: If false, will skip the data generation therefore sketching the unit tensor.
         Runs the experiment scenarios defined in __init__.
         Skips execution if the exact (m, N, K) configuration has already been run.
         """
@@ -406,10 +401,14 @@ class ExperimentManager:
                     print(f"  Run: m={m}, N={N}, K={K}")
 
                     # Generate Data
-                    data = self.generate_data(N=N, K=K)
-                    effective_K_trace = len(data)
-
-                    trace = self.actual_trace(data, N, K)
+                    if use_data:
+                        data = self.generate_data(N=N, K=K)
+                        effective_K_trace = len(data)
+                        trace = self.actual_trace(data, N, K)
+                    else:
+                        data = None
+                        effective_K_trace = K if self.is_mpop else 2 * K - 1
+                        trace = self.d ** N
 
                     # Initialize Algorithms
                     current_algos = []
@@ -434,20 +433,22 @@ class ExperimentManager:
                         i = 1
 
                         print(f"    Running {algo_name}")
-
+                        np.random.seed(10)
                         while stop_criteria(i, algo_time_counter):
-                            if i % 1000 == 0:
+                            if i % 500 == 0:
                                 print(i)
                             # Re-connect fresh copies for sketching
-                            curr_mpos = self.connect_mpo_from_data(data, N)
-
+                            if use_data:
+                                curr_mpos = self.connect_mpo_from_data(data, N)
+                            else:
+                                curr_mpos = None
                             start = time()
                             algo_prediction = algo.sketch(curr_mpos)
                             algo_accumulate += algo_prediction
                             algo_time_counter += time() - start
 
                             # Relative Error
-                            error = (trace - algo_accumulate / i) / abs(trace)
+                            error = (trace - (algo_accumulate / i)) / np.abs(trace)
 
                             val_results[algo_name]['prediction'].append(algo_prediction)
                             val_results[algo_name]['error'].append(error)
@@ -474,12 +475,12 @@ def main():
     d = 2
     D = 1
     is_mpop = True
-    M = 350000
+    M = 5000
 
     # Define lists for parameters
-    m_list = [1]
-    N_list = list(range(3,4))
-    K_list = list(range(4,5))
+    m_list = [1,3, 10,20]
+    N_list = [4]
+    K_list = [1]
 
     algos = [TensorSketcher]
     timer_cap = None
@@ -487,8 +488,9 @@ def main():
     experiment = ExperimentManager(algos=algos, d=d, D=D,
                                    m_list=m_list, N_list=N_list, K_list=K_list,
                                    is_mpop=is_mpop, M=M, min_iteration=1000)
-    experiment.run(backup_file=True, timer_cap=timer_cap, plot_errors=True, plot_variance=True)
-
+    #TODO: Note that you only added use_data=False to tensor sketcher
+    experiment.run(backup_file=True, timer_cap=timer_cap, plot_errors=True, plot_variance=True,
+                   use_data=True)
 
 if __name__ == "__main__":
     main()

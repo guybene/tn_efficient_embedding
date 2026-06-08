@@ -3,7 +3,7 @@ from tensornetwork import Node
 import tensornetwork as tn
 
 from mpo_experiments.ISketch import Sketcher
-DTYPE = np.float64
+DTYPE = np.float32
 
 class TensorSketcher(Sketcher):
     """
@@ -31,8 +31,12 @@ class TensorSketcher(Sketcher):
 
     def create_embedding_tree(self, name, v1_dim, v2_dim):
         m = self.m
-        v_1 = np.random.randn(m, v1_dim, m).astype(DTYPE) / np.sqrt(m) #Assume (up,mid,down)
-        v_2 = np.random.randn(m, v2_dim, m).astype(DTYPE) / np.sqrt(m)
+        # v_1 = np.random.randn(m, v1_dim, m).astype(DTYPE) / np.sqrt(m) #Assume (up,mid,down)
+        # v_2 = np.random.randn(m, v2_dim, m).astype(DTYPE) / np.sqrt(m)
+
+        # Inline Rademacher for the internal nodes
+        v_1 = (np.random.choice([-1, 1], size=(m, v1_dim, m)).astype(DTYPE)) / np.sqrt(m)
+        v_2 = (np.random.choice([-1, 1], size=(m, v2_dim, m)).astype(DTYPE)) / np.sqrt(m)
 
         v_1 = Node(v_1, name=name + "_A")
         v_2 = Node(v_2, name=name + "_B")
@@ -69,7 +73,10 @@ class TensorSketcher(Sketcher):
         # These project the physical dimension 'd' down to 'm'.
         for i in range(self.N):
             # Normalized Gaussian initialization
-            matrix_data = np.random.randn(self.d, self.m).astype(DTYPE) / np.sqrt(self.m)
+            # matrix_data = np.random.randn(self.d, self.m).astype(DTYPE) / np.sqrt(self.m)
+            # Rademacher version for matrix_data
+            matrix_data = (np.random.choice([-1, 1], size=(self.d, self.m)).astype(DTYPE)) / np.sqrt(self.m)
+
             matrix_data = matrix_data.astype(DTYPE)
             leaf = tn.Node(matrix_data, name=f"Leaf_{i}")
 
@@ -222,14 +229,12 @@ class TensorSketcher(Sketcher):
         projected_sites = []
 
         for i in range(N):
-            # Current MPO node
-            node = mpo_nodes[i]
-
-            # 1. Contract Top Leaf into MPO (Axis 0)
-            # Note: We must locate the specific edge connecting them.
-            # Since we know the structure, we can find the shared edge.
-            node = tn.contract_between(node, top_leaves[i])
-            node = tn.contract_between(node, bot_leaves[i])
+            if mpo_nodes is not None:
+                node = mpo_nodes[i]
+                node = tn.contract_between(node, top_leaves[i])
+                node = tn.contract_between(node, bot_leaves[i])
+            else:
+                node = tn.contract_between(top_leaves[i], bot_leaves[i])
 
             projected_sites.append(node)
         projected_sites.reverse()
@@ -273,6 +278,7 @@ class TensorSketcher(Sketcher):
         )
 
         accumulated_matrix = np.eye(self.m, dtype=DTYPE)
+
         current_bottom_edge = None  # Tracks the open edge at bottom of accumulator
 
         for k in range(self.K):
@@ -290,13 +296,20 @@ class TensorSketcher(Sketcher):
                 s_next_final = s_first_final_copy
 
             # 3. Connect Graph: S_curr -> A_k -> S_next
-            current_mpo = mpos[k]
+            if mpos is not None:
+                current_mpo = mpos[k]
+            else:
+                current_mpo = None
             for i in range(self.N):
-                tn.connect(s_curr_phys[i], current_mpo[i][0])
-                tn.connect(s_next_phys[i], current_mpo[i][-1])
-
+                if current_mpo is not None:
+                    tn.connect(s_curr_phys[i], current_mpo[i][0])
+                    tn.connect(s_next_phys[i], current_mpo[i][-1])
+                else:
+                    tn.connect(s_curr_phys[i],s_next_phys[i])
             # 4. Manual Contraction (Leaves then Gadgets)
             sketched_block_matrix = self.sketch_single_mpo(current_mpo, s_curr_nodes, s_next_nodes)
+
+            #TODO: This part should be fixed to match the proper dimension directions, for k>1 this is a problem.
 
             # 5. Accumulate (Matrix Multiplication)
             accumulated_matrix @= sketched_block_matrix

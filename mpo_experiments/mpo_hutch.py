@@ -8,11 +8,18 @@ from mpo_experiments.ISketch import Sketcher
 class MpoHutch(Sketcher):
 
     def sketch(self, mpos):
+        #TODO: CHANGE THIS VERY BAD
+        self.m = 1
         d = self.d
         N = self.N
         K = self.K
 
-        bounding_sketch_data = [np.random.randn(self.d, self.m).astype(np.float32) / (self.m ** 0.5) for _ in range(N)]
+        # bounding_sketch_data = [np.random.randn(self.d, self.m).astype(np.float32) / (self.m ** 0.5) for _ in range(N)]
+        # Inline Rademacher implementation
+        bounding_sketch_data = [
+            (np.random.choice([-1, 1], size=(self.d, self.m)).astype(np.float32)) / (self.m ** 0.5)
+            for _ in range(self.N)
+        ]
         lower_sketch_data = [data.copy() for data in bounding_sketch_data]
 
         curr_mat = np.eye(self.m ** self.N).astype(np.float32)

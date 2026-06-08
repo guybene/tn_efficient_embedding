@@ -1,173 +1,20 @@
+import os
+import math
+import gc
 import numpy as np
-import itertools
-from collections import Counter
-from numpy.linalg import matrix_power
+import torch
+import matplotlib
 
-
-def regression_formula(N, m, sigma):
-    T = np.array([[m ** 3 * (m - 1), 3 * m ** 3 * (m - 1), 3 * m ** 3 * (m - 1)],
-                  [m ** 3, 3 * m ** 2 * (m - 1), 3 * m ** 2 * (m - 1)],
-                  [0, m ** 2, m ** 2]])
-    g_1_vector = np.array([3*m**5*(m-1),
-                           3*m**3*(m**2-1),
-                           m**3])
-
-    two_pairs = np.array([1/3*(m*m*m + m*(m-1)*m**2) + 2/3*m*m**2,
-                          3*m**2*(m-1) + m**3*(m-1),
-                          3*m**2*(m-1) + m**3*(m-1)])
-    four_of_a_kind = np.array([0,
-                               m**2,
-                               m**2])
-
-    count = g_1_vector
-    for _ in range(1, N-2):
-        count = T @ count
-
-    return np.dot(count, two_pairs) + np.dot(count, four_of_a_kind)
-
-
-def count_valid_sequences(N, m):
-    print(f"Start {N}, {m}")
-    num_tensors = N - 1
-    num_vars_per_copy = 2 * N - 1
-    total_vars = 4 * num_vars_per_copy
-
-    sequence_counts = Counter()
-    percent = 0
-    for i, combo in enumerate(itertools.product(range(m), repeat=total_vars)):
-        curr_percent = i/(m**total_vars) * 100
-        if int(curr_percent) > percent:
-            print(int(curr_percent))
-            percent = int(curr_percent)
-        tensors = []
-        for c in range(4):
-            base = c * num_vars_per_copy
-            # chain: left_0, right_0, right_1 ..., right_N-2, int_0, int_1 ..., int_N-2
-            L_0 = combo[base]
-            rights = combo[base + 1: base + N]
-            internals = combo[base + N: base + 2 * N - 1]
-
-            lefts = [L_0] + list(rights[:-1])
-            chain = [(lefts[k], rights[k], internals[k]) for k in range(num_tensors)]
-            tensors.append(chain)
-
-        # The right index of the last tensor g^(N-1) must match for a=b and c=d
-        right_a = tensors[0][-1][-1]
-        right_b = tensors[1][-1][-1]
-        right_c = tensors[2][-1][-1]
-        right_d = tensors[3][-1][-1]
-
-        if right_a != right_b or right_c != right_d:
-            continue
-
-        config_seq = []
-        for k in range(num_tensors):
-            tk = [tensors[c][k] for c in range(4)]
-            counts = sorted(Counter(tk).values())
-
-            if counts == [4]:
-                config_seq.append(4)
-            elif counts == [2, 2]:
-                config_seq.append(2)
-            else:
-                break  # Invalid match, prune branch
-
-        if len(config_seq) == num_tensors:
-            sequence_counts[tuple(config_seq)] += 1
-
-    return dict(sequence_counts)
-
-
-from collections import Counter
-
-
-def count_tree_sequences_optimized(m):
-    # Symmetries: '4' (Identity), '2_1' (a=b!=c=d), '2_2' (a=c!=b=d), '2_3' (a=d!=b=c)
-    syms = ['4', '2_1', '2_2', '2_3']
-
-    sequence_counts = Counter()
-
-    # 1. Number of ways to choose an index vector with a specific symmetry
-    def z_ways(sym):
-        if sym == '4':
-            return m
-        else:
-            return m * (m - 1)
-
-    # 2. Number of ways to choose k_i, k_j such that Tensor T has symmetry S_T, given z has symmetry S_z
-    def t_ways(S_T, S_z):
-        if S_z == '4':
-            if S_T == '4':
-                return m ** 2
-            else:
-                return m ** 4 - m ** 2
-        else:
-            if S_T == S_z:
-                return m ** 4
-            else:
-                return 0
-
-    # 3. Determine the symmetry of Tensor 3 given the symmetries of its 3 inputs
-    def get_t3_sym(S_z1, S_z2, S_n):
-        inputs = [S_z1, S_z2, S_n]
-        if all(x == '4' for x in inputs):
-            return '4'
-
-        # If they are a mix of '4' and exactly ONE type of '2_x', it takes that '2_x' symmetry
-        target_2 = None
-        for x in inputs:
-            if x != '4':
-                if target_2 is None:
-                    target_2 = x
-                elif target_2 != x:
-                    return None  # Invalid clash (e.g., trying to merge 2_1 and 2_2)
-        return target_2
-
-    # --- The Main Loop ---
-    # Iterate over valid symmetries for the bonds z1, z2, n
-    # Your condition: n^(a)=n^(b) and n^(c)=n^(d). This restricts 'n' strictly to '4' or '2_1'.
-    for Z1 in syms:
-        for Z2 in syms:
-            for N in ['4', '2_1']:
-
-                # Check if Tensor 3 forms a valid symmetry
-                S3 = get_t3_sym(Z1, Z2, N)
-                if S3 is None: continue
-
-                # Calculate base combinations for the intermediate bonds
-                base_ways = z_ways(Z1) * z_ways(Z2) * z_ways(N)
-
-                # Iterate over target symmetries for Tensor 1 and Tensor 2
-                for S1 in syms:
-                    for S2 in syms:
-                        w1 = t_ways(S1, Z1)
-                        w2 = t_ways(S2, Z2)
-
-                        if w1 == 0 or w2 == 0: continue
-
-                        # Total combinations is the product of all independent choices
-                        total_combos = base_ways * w1 * w2
-
-                        # Convert internal symmetry labels back to your output format (4 or 2)
-                        seq = (
-                            4 if S1 == '4' else 2,
-                            4 if S2 == '4' else 2,
-                            4 if S3 == '4' else 2
-                        )
-                        sequence_counts[seq] += total_combos
-
-    return dict(sequence_counts)
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def closest_dividers(m, D=1):
-    """
-    Finds exact divisors of m closest to sqrt(m/D).
-    """
-    split_dimension = np.sqrt(m / D)
+    split_dimension = math.sqrt(m / D)
     closest_b1, closest_b2 = None, None
     min_diff = float('inf')
 
-    for b1 in range(1, int(m ** 0.5) + 1):
+    for b1 in range(1, int(math.sqrt(m)) + 1):
         if m % b1 == 0:
             b2 = m // b1
             diff = abs(b1 - split_dimension)
@@ -177,178 +24,133 @@ def closest_dividers(m, D=1):
     return closest_b1, closest_b2
 
 
-def create_g_node(m, sigma):
+@torch.no_grad()
+def calculate_variances_batched(m, N, d, M, batch_size=100, device='cuda'):
     """
-    Creates the internal g node of shape (m, m, m) by contracting two
-    i.i.d Gaussian 3-tensors. Uses exact divisors to avoid padding.
+    Computes linear, shallow binary tree, and simple kronecker variances.
     """
-    m1, m2 = closest_dividers(m, D=1)
+    sigma = 1.0 / math.sqrt(m)
+    m1, m2 = closest_dividers(m)
 
-    X1 = np.random.normal(0, sigma, size=(m, m1, m)).astype(np.float32)
-    X2 = np.random.normal(0, sigma, size=(m, m2, m)).astype(np.float32)
+    expected_trace_linear = 0.0
+    expected_trace_shallow = 0.0
+    expected_trace_kronecker = 0.0
 
-    g_raw = np.einsum('kil, ljz -> kijz', X1, X2)
-    g = g_raw.reshape(m, m, m)
-
-    return g
-
-
-def estimate_linear_tree_variance(m, N, d, M):
-    """
-    Estimates E[S^T S \kron S^T S] for the Linear Tree sketch using float32.
-    """
-    sigma = 1.0 / np.sqrt(m)
-    # Explicitly set dtype to float32 for the large expected matrix
-    expected_kron = np.zeros((d ** (2 * N), d ** (2 * N)), dtype=np.float32)
-
-    for q in range(M):
-        if q % 1000 == 0:
-            print("Linear tree:   ", q)
-        # Cast leaf nodes to float32
-        leaves = [np.random.normal(0, sigma, size=(d, m)).astype(np.float32) for _ in range(N)]
-        T = leaves[0]
-
-        for i in range(1, N):
-            g = create_g_node(m, sigma)
-            T_new = np.einsum('al, br, lrp -> abp', T, leaves[i], g)
-            T = T_new.reshape(-1, m)
-
-        S = T.T
-        STS = S.T @ S
-        expected_kron += np.kron(STS, STS)
-
-    return expected_kron / M
-
-
-def estimate_binary_tree_variance(m, N, d, M):
-    """
-    Estimates E[S^T S \kron S^T S] for the Shallow Full Binary Tree sketch using float32.
-    Builds a perfectly balanced complete binary tree topology.
-    """
-    sigma = 1.0 / np.sqrt(m)
-    expected_kron = np.zeros((d ** (2 * N), d ** (2 * N)), dtype=np.float32)
-    D = int(np.ceil(np.log2(N)))
-    power_of_2 = 2 ** D
+    D_depth = int(math.ceil(math.log2(N)))
+    power_of_2 = 2 ** D_depth
     leaves_to_pair = 2 * N - power_of_2
 
-    for q in range(M):
-        if q % 1000 == 0:
-            print("Shallow tree:   ", q)
-        # Generate N leaf nodes
-        layer = [np.random.normal(0, sigma, size=(d, m)).astype(np.float32) for _ in range(N)]
+    for b_start in range(0, M, batch_size):
+        B = min(batch_size, M - b_start)
+
+        # 1. Generate Shared Arrays
+        leaves = torch.randn(B, N, d, m, dtype=torch.float32, device=device) * sigma
+
+        X1 = torch.randn(B, N - 1, m, m1, m, dtype=torch.float32, device=device) * sigma
+        X2 = torch.randn(B, N - 1, m, m2, m, dtype=torch.float32, device=device) * sigma
+
+        g_raw = torch.einsum('bnkil, bnljz -> bnkijz', X1, X2)
+        g_nodes = g_raw.reshape(B, N - 1, m, m, m)
+
+        # --- 1. LINEAR TREE CONTRACTION ---
+        current_lin = leaves[:, 0]
+        for i in range(1, N):
+            L = current_lin
+            R = leaves[:, i]
+            g = g_nodes[:, i - 1]
+            current_lin = torch.einsum('bdm, ben, bmnp -> bdep', L, R, g).reshape(B, -1, m)
+
+        trace_lin = torch.sum(current_lin * current_lin, dim=(1, 2))
+        expected_trace_linear += torch.sum(trace_lin ** 2).item()
+
+        # --- 2. SHALLOW BINARY TREE CONTRACTION ---
+        layer = [leaves[:, i] for i in range(N)]
+        g_idx = 0
 
         next_layer = []
         for j in range(0, leaves_to_pair, 2):
-            L, R = layer[j], layer[j + 1]
-            g = create_g_node(m, sigma)
-            parent = np.einsum('al, br, lrp -> abp', L, R, g).reshape(-1, m)
-            next_layer.append(parent)
+            L = layer[j]
+            R = layer[j + 1]
+            g = g_nodes[:, g_idx]
+            g_idx += 1
+            next_layer.append(torch.einsum('bdm, ben, bmnp -> bdep', L, R, g).reshape(B, -1, m))
 
-        # Append the rest of the untouched leaves that sit one level higher
         next_layer.extend(layer[leaves_to_pair:])
         layer = next_layer
 
-        # 3. Now len(layer) is guaranteed to be a perfect power of 2.
-        # We can do perfect level-by-level pairwise contractions up to the root.
         while len(layer) > 1:
             next_layer = []
             for j in range(0, len(layer), 2):
-                L, R = layer[j], layer[j + 1]
-                g = create_g_node(m, sigma)
-                parent = np.einsum('al, br, lrp -> abp', L, R, g).reshape(-1, m)
-                next_layer.append(parent)
+                L = layer[j]
+                R = layer[j + 1]
+                g = g_nodes[:, g_idx]
+                g_idx += 1
+                next_layer.append(torch.einsum('bdm, ben, bmnp -> bdep', L, R, g).reshape(B, -1, m))
             layer = next_layer
 
-        S = layer[0].T
-        STS = S.T @ S
-        expected_kron += np.kron(STS, STS)
+        S_mat_shal = layer[0]
+        trace_shal = torch.sum(S_mat_shal * S_mat_shal, dim=(1, 2))
+        expected_trace_shallow += torch.sum(trace_shal ** 2).item()
 
-    return expected_kron / M
+        # --- 3. SIMPLE KRONECKER SKETCH ---
+        # ||A_1 \otimes ... \otimes A_N||_F^2 = \prod ||A_i||_F^2
+        # Calculate squared frobenius norm for each leaf: shape (B, N)
+        leaves_frob_sq = torch.sum(leaves * leaves, dim=(2, 3))
+        # Product across the N dimension: shape (B,)
+        trace_kron = torch.prod(leaves_frob_sq, dim=1)
+        expected_trace_kronecker += torch.sum(trace_kron ** 2).item()
 
+        # Memory Cleanup for Colab
+        del leaves, X1, X2, g_raw, g_nodes, current_lin, layer, next_layer, S_mat_shal, L, R, g
+        leaves_frob_sq = None
+        trace_kron = None
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
-def create_rademacher_kron(d, N):
-    # Calculate the dimension D = d^N
-    D = d ** N
+    # Calculate final variances
+    linear_var = (expected_trace_linear / M) - (d ** (2 * N))
+    shallow_var = (expected_trace_shallow / M) - (d ** (2 * N))
+    kron_var = (expected_trace_kronecker / M) - (d ** (2 * N))
 
-    # 1. Create the Rademacher i.i.d matrix A
-    # np.random.choice is perfect for uniformly sampling -1 and 1
-    A = np.random.choice([-1, 1], size=(D, D))
-
-    # 2. Compute A \otimes A using np.kron
-    A_kron_A = np.kron(A, A)
-
-    return A, A_kron_A
-
-
-import os
-import numpy as np
-import matplotlib
-
-# Force matplotlib to not use any Xwindows backend.
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from numpy.linalg import matrix_power
+    return linear_var, shallow_var, kron_var
 
 
-# Assuming your custom functions are defined above this script:
-# def estimate_linear_tree_variance(m, N, d, M): ...
-# def estimate_binary_tree_variance(m, N, d, M): ...
-# def create_rademacher_kron(d, N): ...
-
-def calculate_variances(m, N, d, k, M):
-    linear = estimate_linear_tree_variance(m=m, N=N, d=d, M=M)
-    shallow = estimate_binary_tree_variance(m=m, N=N, d=d, M=M)
-    A, A_kron_A = create_rademacher_kron(d=d, N=N)
-
-    A_trace = np.trace(matrix_power(A, k))
-
-    linear_variance =  np.trace(matrix_power(linear @ A_kron_A, k)) - A_trace ** 2
-    shallow_variance = np.trace(matrix_power(shallow @ A_kron_A, k)) - A_trace ** 2
-
-    return np.real(linear_variance), np.real(shallow_variance)
-
-
-def analyze_parameter_effects(m_list, N_list, k_list,
-                              base_m=2, base_N=3, base_d=3, base_k=1, M=int(1e4)):
+def analyze_parameter_effects(m_list, N_list, base_m=2, base_N=3, base_d=3, M=int(1e4)):
     save_dir = "variance_results"
     os.makedirs(save_dir, exist_ok=True)
 
-    base_params = {'m': base_m, 'N': base_N, 'd': base_d, 'k': base_k}
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"--- Running computation on: {device.upper()} ---")
 
-    param_grids = {
-        'm': m_list,
-        'N': N_list,
-        'k': k_list
-    }
+    base_params = {'m': base_m, 'N': base_N, 'd': base_d}
+    param_grids = {'m': m_list, 'N': N_list}
 
     for param_name, param_values in param_grids.items():
-        linear_vars = []
-        shallow_vars = []
-
+        linear_vars, shallow_vars, kron_vars = [], [], []
         print(f"\n--- Running experiments varying '{param_name}' ---")
 
         for val in param_values:
             curr_params = base_params.copy()
             curr_params[param_name] = val
-
             print(f"Running with: {curr_params}")
 
-            lin_var, shal_var = calculate_variances(
+            lin_var, shal_var, kron_var = calculate_variances_batched(
                 m=curr_params['m'],
                 N=curr_params['N'],
                 d=curr_params['d'],
-                k=curr_params['k'],
-                M=M
+                M=M,
+                batch_size=30,
+                device=device
             )
 
             linear_vars.append(lin_var)
             shallow_vars.append(shal_var)
+            kron_vars.append(kron_var)
 
-        # Create figure silently in memory
         fig, ax = plt.subplots(figsize=(8, 6))
-
         ax.plot(param_values, linear_vars, marker='o', label='Linear Variance')
         ax.plot(param_values, shallow_vars, marker='s', label='Shallow Variance')
+        ax.plot(param_values, kron_vars, marker='^', linestyle='-.', label='Simple Kronecker Variance')
 
         ax.set_title(f'Effect of Varying {param_name.upper()}')
         ax.set_xlabel(f'{param_name} values')
@@ -362,32 +164,30 @@ def analyze_parameter_effects(m_list, N_list, k_list,
 
         fixed_params = {key: val for key, val in base_params.items() if key != param_name}
         fixed_str = "Fixed Base Params:\n" + "\n".join([f"{key} = {val}" for key, val in fixed_params.items()])
-
         ax.text(0.05, 0.95, fixed_str, transform=ax.transAxes, fontsize=10,
                 verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
         save_path = os.path.join(save_dir, f"{param_name}.png")
         fig.tight_layout()
         fig.savefig(save_path, dpi=300)
-
-        # Explicitly close the figure to free up memory instantly
         plt.close(fig)
-
         print(f"Saved plot to {save_path}")
 
 
 if __name__ == "__main__":
-    m_test_list = [2, 3,4,5, 6]
-    N_test_list = [ 3, 4, 5,6]
-    k_test_list = [1, 2, 3, 5]
+    # Force garbage collection before starting just in case Colab is lingering
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    m_test_list = [100, 150, 200, 250]
+    N_test_list = [5, 10, 12, 15]
 
     analyze_parameter_effects(
         m_list=m_test_list,
         N_list=N_test_list,
-        k_list=k_test_list,
-        base_m=2,
-        base_N=3,
-        base_d=3,
-        base_k=1,
-        M=int(3e4)
+        base_m=30,
+        base_N=5,
+        base_d=2,
+        M=int(5000)
     )
