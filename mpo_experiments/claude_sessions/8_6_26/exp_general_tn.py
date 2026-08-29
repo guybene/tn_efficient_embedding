@@ -57,7 +57,7 @@ import matplotlib.pyplot as plt
 
 from sketches import (TreeOp, TREE_REGISTRY, estimate_operator, estimate_cost, DTYPE)
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"      # server: 2GB/CUDA-11.4 GPU is unusable for the m^4 intermediates; 125GB RAM CPU is the backend
 
 # %% [2] CONFIG -----------------------------------------------------------------------
 CONFIG = {
@@ -71,9 +71,9 @@ CONFIG = {
     "eps": 0.3,
     "delta": 0.2,
     "groups": 600,             # estimators per single-shot pass-rate   (Colab: 2000)
-    "m_ceiling": 64,           # m* binary-search cap; the tree block holds an
-                               # m^4 chi^2 d complex intermediate PER SAMPLE, so the
-                               # ceiling (evaluated first) must fit in memory
+    "m_ceiling": 96,           # m* search cap; the tree block holds an m^4 chi^2 d
+                               # complex intermediate PER SAMPLE (~16 GB at m=96), and
+                               # only censored points ever evaluate the ceiling
     "pool": 400_000,           # Monte-Carlo pool of single estimates for the scalar
                                # probes' batch search                   (Colab: 5e6)
     "min_groups": 40,          # least M-means needed to certify a pass rate; the batch
@@ -122,8 +122,8 @@ def pass_rate(sk, op, K, eps, M, groups):
     of Tr(A^K).  The (eps,delta) property holds iff this >= 1 - delta."""
     tv = op.true_pk(K)
     # batch capped so the tree block's largest intermediate (m^4 chi^2 d complex128
-    # entries per sample) stays under ~2 GB
-    cap = max(1, 2_000_000_000 // (16 * sk.m ** 4 * op.chi ** 2 * op.d))
+    # entries per sample) stays under ~32 GB (server: 125 GB RAM, CPU backend)
+    cap = max(1, 32_000_000_000 // (16 * sk.m ** 4 * op.chi ** 2 * op.d))
     need, chunk = groups * M, max(1, min(max(sk.chunk(K), M), cap))
     ests, done = [], 0
     while done < need:
@@ -136,7 +136,9 @@ def pass_rate(sk, op, K, eps, M, groups):
 
 def m_star(cfg, name, op, K, eps, delta):
     """Single-shot m*: smallest m in [1, m_ceiling] whose ONE estimate is (eps,delta).
-    Binary search; None if censored at the ceiling."""
+    Doubling search up from m=1 -- the cost grows like m^4, so cheap points must
+    never evaluate the ceiling -- then binary search in the last interval.
+    None if censored at the ceiling."""
     groups, ceil = cfg["groups"], cfg["m_ceiling"]
     cache = {}
 
@@ -145,9 +147,12 @@ def m_star(cfg, name, op, K, eps, delta):
             cache[m] = pass_rate(make_sketch(cfg, name, m, op), op, K, eps, 1, groups)
         return cache[m]
 
-    if pr(ceil) < 1.0 - delta:
+    m = 1
+    while m < ceil and pr(m) < 1.0 - delta:
+        m = min(2 * m, ceil)
+    if pr(m) < 1.0 - delta:
         return None
-    lo, hi = 1, ceil
+    lo, hi = m // 2 + 1, m
     while lo < hi:
         mid = (lo + hi) // 2
         if pr(mid) >= 1.0 - delta:
