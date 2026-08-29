@@ -1,0 +1,47 @@
+{
+  "config": {
+    "d": 2,
+    "dist": "rademacher",
+    "trials": 300,
+    "m_ceiling": 20,
+    "seed": 0,
+    "spectra": [
+      "identity"
+    ],
+    "theorem_base": {
+      "N": 4,
+      "d": 2,
+      "K": 1,
+      "eps": 0.45,
+      "delta": 0.25
+    },
+    "theorem_sweeps": {
+      "C": [
+        1,
+        2,
+        4
+      ]
+    }
+  },
+  "results": {
+    "C": {
+      "xs": [
+        1,
+        2,
+        4
+      ],
+      "identity": {
+        "m_star": [
+          5,
+          6,
+          5
+        ],
+        "censored": [
+          false,
+          false,
+          false
+        ]
+      }
+    }
+  }
+}

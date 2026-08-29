@@ -1,0 +1,1564 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, mathtools}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}[section]
+% \newtheorem{corollary}{Corollary}[corollary]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{definition}
+\geometry{
+    top=2cm,
+    bottom=3cm,
+    left=1cm,
+    right=1cm
+}
+\usepackage{float}
+\usepackage{cancel}
+\usepackage{esint}
+\usepackage{mathdots}
+\usepackage{mhchem}
+\usepackage{stackrel}
+\usepackage{stmaryrd}
+% Define custom colors if needed (from original preamble)
+\definecolor{blue}{RGB}{14,107,217}
+\definecolor{green}{RGB}{0,158,40}
+\definecolor{red}{RGB}{235,16,16}
+\definecolor{brown}{RGB}{164,66,0}
+\definecolor{orange}{RGB}{231,135,26}
+\definecolor{purple}{RGB}{94,53,177}
+% Custom macros from the original LyX file
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\BB}{\mathcal{B}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\C}{\mathbb{C}}
+\renewcommand{\O}{\Omega}
+\newcommand{\eps}{\varepsilon}
+\begin{document}
+\begin{center}
+    \fbox{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{\centering \Large \textbf{Calculate M}}}
+\end{center}
+\tableofcontents 
+\newpage
+\vspace{0.5cm}
+\section{Problem Definition}
+
+Let $\mathcal{A}\in \R^{d\times d \times \cdots \times d}$  be an $MPOP$,  with $N$ vertices of order $k$ and a physical dimension $d$. We will calculate the error of the sketching tensor network $S$, that is: 
+\begin{align}
+\text{var}(\text{Tr}(S_{1}AS_{2}^{T}S_{2}A\cdots S_{k}^{T}S_{k}AS_{1}^{T})) & =\mathbb{E}[\text{Tr}(S_{1}A\cdots S_{k}^{T}S_{k}AS_{1}^{T})^{2}]-\mathbb{E}[\text{Tr}(S_{1}A\cdots S_{k}^{T}S_{k}AS_{1}^{T})]^{2}\\
+ & =\mathbb{E}[\text{Tr}(S_{1}A\cdots S_{k}^{T}S_{k}AS_{1}^{T})^{2}]-\text{Tr}(A^{k})^{2}.\label{eq:target_eq}
+\end{align}
+We evaluate the 1st term: 
+\begin{align}
+\mathbb{E}[\text{Tr}(S_{1}AS_{2}^{T}\cdots S_{k}^{T}S_{k}AS_{1}^{T})^{2}] & =\mathbb{E}[\text{Tr}(S_{1}A\cdots S_{k}^{T}S_{k}AS_{1}^{T})^{2}]\nonumber\\
+ & =\mathbb{E}[\text{Tr}(\prod_{i=1}^{k}S_{i}^{T}S_{i}A)^{2}]\nonumber\\
+ & =\mathbb{E}[\text{Tr}(\prod_{i=1}^{k}S_{i}^{T}S_{i}A\otimes\prod_{i=1}^{k}S_{i}^{T}S_{i}A)]\nonumber\\
+ & =E\left[\text{Tr}\left(\prod_{i=1}^{k}\left(S_{i}^{T}S_{i}\otimes S_{i}^{T}S_{i}\right)\cdot A\otimes A\right)\right]\label{eq:k_target}
+ \end{align}
+ 
+
+where the last transition holds since the $S_{i}$ are $i.i.d.$
+We denote 
+\begin{align}
+       M_{i^{(a)}i^{(b)}i^{(c)}i^{(d)}}&:=\mathbb{E}[(S^{T}S)_{i^{(a)}i^{(b)}}\otimes(S^{T}S)_{i^{(c)}i^{(d)}}]\\
+       B&:=A \otimes A \label{eq:M_def}
+\end{align}
+We note that $M,B\in \mathbb{R}^{d^{2N}\times d^{2N}}$
+
+
+and we wish to evaluate 
+\[
+Tr(M \cdot B)
+\]
+and 
+\[
+Tr((MB)^k).
+\]
+
+\newpage
+
+\subsection{The Structure of sketching Tensor Network (TN) $S$}
+
+The tensor $S\in\R^{m\times d\times \cdots \times d}$ of order $N+1$ has the following form:
+
+\vspace{0.5cm}
+\begin{center}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{sketch_of_graph_network.png}
+    \caption{Graphical representation of $S$}
+    \label{fig:s_structure}
+\end{figure}
+\end{center}
+\vspace{0.5cm}
+
+In the current graph $X^{(i)}\in\R^{m\times d}$ there are $i.i.d.$ matrices with $X_{ij}\sim \mathcal{N}(0,\sigma^{2})$ that represent the Kronecker part of the sketching. Let $g^{(i)}\in\R^{m\times m_{1}\times m_{2}\times m}$ are the contractions of the original gadgets that we reshape to an order 3 tensor with $g^{(i)}\in\R^{m\times m\times m}$ where $m_{1}\cdot m_{2}=m$. 
+Our gadgets $g^{(i)}$  are constructed with the following:
+\begin{align}
+G_{ij} & \sim \mathcal{N}(0,\sigma^{2})\\
+g_{k_{1}k_{2}^{(1)}k_{2}^{(2)}z_{1}}^{(1)} & =\sum_{l=1}^{m}G^{(1,1)}_{k_{1}k_{2}^{(1)}l}\cdot G^{(1,2)}_{lk_{2}^{(2)}z_{1}}\\
+g_{z_{p-1}k_{p+1}^{(1)}k_{p+1}^{(2)}z_{p}}^{(p)} & =\sum_{l=1}^{m}G^{(p,1)}_{z_{p-1}k_{p+1}^{(1)}l}G^{(p,2)}_{lk_{p+1}^{(2)}z_{p}} \label{eq:g_def}
+\end{align}
+
+The matricization $S\in\R^{m\times d^{N}}$, for all $1\le n\le m, 1\le i\le d^{N}$, where $i=(i_{1},...,i_{N})\in[d]^{N}$ can be written as:
+
+
+\begin{align}
+S_{n,(i_{1},...,i_{N})} & =\sum_{z_{1},.,z_{N-2},k_{1},.,k_{N}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1)}g_{z_{1}k_{3}z_{2}}^{(2)}\cdots g_{z_{N-2}k_{N}n}^{(N-1)}\cdot X_{i_{1}k_{1}}^{(1)}X_{i_{2}k_{2}}^{(2)}\cdots X_{i_{N}k_{N}}^{(N)}\\
+ & =\sum_{\boldsymbol{z},\boldsymbol{k}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1)}\prod_{p=2}^{N-2}g_{z_{p-1}k_{p+1}z_{p}}^{(p)}\cdot g_{z_{N-2}k_{N}n}^{(N-1)}\prod_{l=1}^{N}X_{i_{l}k_{l}}^{(l)} \label{eq:s_def}
+\end{align}
+
+
+where we denote $\boldsymbol{z}=(z_{1},...,z_{N-2}), \boldsymbol{k}=(k_{1},...,k_{N})$ with $1\le z_{i},k_{i}\le m$,
+
+and the columns of $S\in\R^{m\times d^{N}}$:
+\[
+S=\begin{bmatrix}| &  & | &  & |\\
+S_{1} & \cdots & S_{i} & \cdots & S_{d^{N}}\\
+| &  & | &  & |
+\end{bmatrix}.
+\]
+
+We obtain $S^{T}S\in\R^{d^{N}\times d^{N}}$, where each entry is defined by
+\begin{align}
+\left(S^{T}S\right)_{i^{(a)}i^{(b)}} & =\langle S_{i^{(a)}},S_{i^{(b)}}\rangle=\sum_{n=1}^{m}S_{ni^{(a)}}S_{ni^{(b)}}\label{eq:dot_prod_example}\\
+ & =\sum_{n=1}^{m}\left(\sum_{\boldsymbol{z},\boldsymbol{k}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1)}g_{z_{1}k_{3}z_{2}}^{(2)}\cdots g_{z_{N-2}k_{N}\boldsymbol{n}}^{(N-1)}\prod_{l=1}^{N}X_{i_{l}^{(a)}k_{l}}\sum_{\boldsymbol{z}^{\prime},\boldsymbol{k}^{\prime}=1}^{m}g_{k_{1}^{\prime}k_{2}^{\prime}z_{1}^{\prime}}^{(1)}g_{z_{1}^{\prime}k_{3}^{\prime}z_{2}^{\prime}}^{(2)}\cdots g_{z_{N-2}^{\prime}k_{N}^{\prime}\boldsymbol{n}}^{(N-1)}\prod_{l=1}^{N}X_{i_{l}^{(b)}k_{l}^{\prime}}\right)\nonumber\\
+ & =\sum_{n=1}^{m}\left(\sum_{\boldsymbol{z},\boldsymbol{k},\boldsymbol{z}^{\prime},\boldsymbol{k}^{\prime}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1)}g_{k_{1}^{\prime}k_{2}^{\prime}z_{1}^{\prime}}^{(1)}\prod_{p=2}^{N-2}g_{z_{p-1}k_{p+1}z_{p}}^{(p)}g_{z_{p-1}^{\prime}k_{p+1}^{\prime}z_{p}^{\prime}}^{(p)}\cdot g_{z_{N-2}k_{N}\boldsymbol{n}}^{(N-1)}g_{z_{N-2}^{\prime}k_{N}^{\prime}\boldsymbol{n}}^{(N-1)}\prod_{l=1}^{N}X_{i_{l}^{(a)}k_{l}}\prod_{l=1}^{N}X_{i_{l}^{(b)}k_{l}^{\prime}}\right)\nonumber \label{eq:S_dot_prod_def}
+\end{align}
+
+
+Therefore, to evaluate the Kronecker part of the sketch \ref{eq:s_def}, we get $4$ copies of the columns of $S$. We denote each copy by $\{a,b,c,d\}$, to calculate $\langle S_{i^{(a)}},S_{i^{(b)}}\rangle\langle S_{i^{(c)}},S_{i^{(d)}}\rangle$:
+\begin{align}
+ & =\sum_{n_{1}=1}^{m}S_{n_{1}i^{(a)}}S_{n_{1}i^{(b)}}\cdot\sum_{n_{2}=1}^{m}S_{n_{2}i^{(c)}}S_{n_{2}i^{(d)}}\\
+ & =\sum_{n_{1}=1}^{m}\left(\sum_{z^{(a)},k^{(a)},z^{(b)},k^{(b)}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1,a)}g_{k_{1}^{\prime}k_{2}^{\prime}z_{1}^{\prime}}^{(1,b)}\prod_{p=2}^{N-2}g_{z_{p-1}k_{p+1}z_{p}}^{(p,a)}g_{z_{p-1^{\prime}}k_{p+1}^{\prime}z_{p}^{\prime}}^{(p,b)}\cdot g_{z_{N-2}k_{N}\boldsymbol{n}}^{(N-1,a)}g_{z_{N-2}^{\prime}k_{N}^{\prime}\boldsymbol{n}}^{(N-1,b)}\prod_{l=1}^{N}X_{i_{l}^{(a)}k_{l}^{(a)}}\prod_{l=1}^{N}X_{i_{l}^{(b)}k_{l}^{(b)}}\right)\\
+ & \cdot\sum_{n_{2}=1}^{m}\left(\sum_{z^{(c)},k^{(c)},z^{(d)},k^{(d)}=1}^{m}g_{k_{1}k_{2}z_{1}}^{(1,c)}g_{k_{1}^{\prime}k_{2}^{\prime}z_{1}^{\prime}}^{(1,d)}\prod_{p=2}^{N-2}g_{z_{p-1}k_{p+1}z_{p}}^{(p,c)}g_{z_{p-1^{\prime}}k_{p+1}^{\prime}z_{p}^{\prime}}^{(p,d)}\cdot g_{z_{N-2}k_{N}\boldsymbol{n}}^{(N-1,c)}g_{z_{N-2}^{\prime}k_{N}^{\prime}\boldsymbol{n}}^{(N-1,d)}\prod_{l=1}^{N}X_{i_{l}^{(c)}k_{l}^{(c)}}\prod_{l=1}^{N}X_{i_{l}^{(d)}k_{l}^{(d)}}\right).\label{eq:full_S_calcultae}
+\end{align}
+
+Rearranging and using the independence of the different tensors, we obtain
+\[
+\mathbb{E}[\langle S_{i^{(a)}},S_{i^{(b)}}\rangle\langle S_{i^{(c)}},S_{i^{(d)}}\rangle]=\sum_{n_{1},n_{2}=1}^{m}\sum_{Z,K}^{m}\prod_{p=1}^{N-1}E\left[g^{(p,a)}g^{(p,b)}g^{(p,c)}g^{(p,d)}\right]\cdot E\left[\prod_{l=1}^{N}\prod_{q\in\{a,b,c,d\}}X_{i_{l}^{(q)}k_{l}^{(q)}}\right]\label{eq:S_4_copies}.
+\]
+\newpage
+\subsection{Replica Patterns and Chains}
+\label{sec:replica-patterns}
+
+The variance computation involves products of four replicas of $S$ (Eq.(\ref{eq:S_4_copies})) , indexed by labels $q \in \{a,b,c,d\}$. At each internal bond and at each leaf, the four index values across replicas can collapse in a limited number of ways. We formalize this as follows.
+
+\begin{definition}
+\label{def:patterns}
+A replica pattern is an equivalence relation in the set $\{i^{(a)}_l,i^{(b)}_l,i^{(c)}_l,i^{(d)}_l\}$ for every $1\le l\le N$. There are four such relations, which we define as    $\mathcal{P} = \{A, U_1, U_2, 4K\}$, where
+\begin{align}
+4K &:\; \{i^{(a)}_l=i^{(b)}_l=i^{(c)}_l=i^{(d)}_l\}, \label{eq:patterns} \\
+A  &:\; \{i^{(a)}_l=i^{(b)}_l\} \,\sqcup\, \{i^{(c)}_l=i^{(d)}_l\}, \nonumber \\
+U_1 &:\; \{i^{(a)}_l=i^{(c)}_l\} \,\sqcup\, \{i^{(b)}_l=i^{(d)}_l\}, \nonumber \\
+U_2 &:\; \{i^{(a)}_l=i^{(d)}_l\} \,\sqcup\, \{i^{(b)}_l=i^{(c)}_l\}. \nonumber
+\end{align}
+We refer to $4K$ as the ``four-of-a-kind'' pattern, to $A$ as the ``aligned'' pattern (matching the main-diagonal pairing of the trace), and to $U_1, U_2$ as the two ``unaligned'' pairings. 
+We note that patterns $A,U_1,U_2$  act like a 2 pair pattern, they make the tensors act like 2 independent copies of pairs. So we refer to them as $2P$  patterns.
+
+\label{def:Chain}
+Each  $i^{(q)},q\in\{a,b,c,d\} $, is an $N$-tuple itself , i.e.,
+\begin{align}
+    i^{(q)}&=(i^{(q)}_1,i^{(q)}_2,...,i^{(q)}_N)\in [d]^N.\\
+\end{align}
+Each sub-index $(i^{(a)}_l,i^{(b)}_l,i^{(c)}_l,i^{(d)}_l)\in[d]^4$ induces a pattern $P^l$  for each $ l\in[N]$.
+Finally, we define a chain of patterns  $(P_1,...,P_N)$ induced by the index $(i^{(a)},i^{(b)},i^{(c)},i^{(d)})\in[d]^{4\times N}$.
+\end{definition}
+\pagebreak
+\section{Evaluating M}
+We want to evaluate each entry in $M$, to do so we construct the following theorem.
+\begin{theorem}[Entry-wise decomposition of $M$]
+\label{thm:per-entry-M}
+Let $S \in \mathbb{R}^{m \times d^N}$ be the matricized sketching tensor network of Eq.~\eqref{eq:s_def}, with i.i.d.\ core entries $G^{(l)}_{ij},\, X^{(l)}_{ij} \sim Q$, where $Q$ is a (real) distribution satisfying
+\[
+\mathbb{E}[Q] = \mathbb{E}[Q^3] = 0, \qquad \mathbb{E}[Q^2] = \sigma_2, \qquad \mathbb{E}[Q^4] = \sigma_4.
+\]
+Let $M$ be the matrix defined in Eq.~\eqref{eq:M_def}, and let  $\mathcal{P}$ be the four replica patterns from Def.~\ref{def:patterns}. 
+\begin{equation}
+\label{eq:per-entry-M}
+M\!\left[(i^a,i^c),\,(i^b,i^d)\right]
+\;=\;
+V(P_1,\dots,P_N)
+\end{equation}
+where 
+\begin{equation}
+\label{eq:chain-value}
+V(P_1,\dots,P_N)
+\;=\;
+\bigl\langle u^{P_N}_{\mathrm{end}},
+\, W_{P_{N-1}}\, W_{P_{N-2}} \cdots W_{P_{3}}\,
+u^{(P_1,P_2)}_{\mathrm{init}}\rangle
+\end{equation}
+and  $W_P\in \C^{4\times 4}\text{ and } u^{(P_1,P_2)}_{\mathrm{init}},\, u^{P_N}_{\mathrm{end}}\in\C^{4}$   are the Markov chain components.;
+\end{theorem}
+\subsection{Sketch Of The Proof}
+\subsubsection{Proof logic}
+Looking at $S$  as a sum (Eq. (\ref{eq:full_S_calcultae)}), we notice that each core tensor $g^{(p)}$ for $p=3,...,N-2$ share indices with a Kronecker tensor $X^{(p+1)}$  (which is a simple Gaussian tensor affected by the choice of indices) and 2 other core tensors $g^{(p-1)},g^{(p+1)}$.
+Hence, the core tensors $g^{(p)}$  act like a linear matrix product with an added interaction with $X^{(p+1)}$.
+Therefore, we use the approach of  a \emph{Markov like} model where in order to analyze the sum in Eq. (\ref{eq:full_S_calcultae}) for $p$ tensors, we need information derived from $p-1$  tensors.
+Our initial state is derived from $g^{(1)}$, we use our model to calculate the count for $N-2$  tensors $g$ , and the end state is the final tensor $g^{(N-1)}$ .
+At each step we count all possible permutations of patterns $\mathcal{P}$  for the next tensor and the weight for that permutation given from the expectation of the tensors in that permutation.
+
+\subsubsection{Proof Road-map.}
+The remainder of this section is devoted to proving Theorem~\ref{thm:per-entry-M} and identifying its building blocks. The starting point is the observation that $M$ is defined entry-wise in~\eqref{eq:M_def} as a fourth-order moment of $S$, and that $S$ itself is built from two independent random ingredients: the core gadget tensors $g^{(p)}$ (built in turn from the Gaussian matrices $G^{(p,1)}, G^{(p,2)}$, see Eq.~\eqref{eq:g_def}) and the Kronecker leaf matrices $X^{(l)}$.   
+The task is therefore to evaluate, for a given $(i^a, i^b, i^c, i^d)$, a single entry of $M$. We carry this out in three steps:
+\begin{enumerate}
+    \item Local expectation  (section~\ref{sec:local_expectation}) -  Each sub-index $l\in [N]$ is effected by a fixed set of elements, we evaluate all possible expectations gained.
+    \item \emph{Combinatorics of non-vanishing terms} (Section~\ref{sec:combinatorics}). The moment assumption $\mathbb{E}[Q] = \mathbb{E}[Q^3] = 0$ forces every non-vanishing term to be included  in $\mathcal{P}$. This reduces the index sum to a sum over all possible pattern chains $(P_1, \dots, P_N) \in \mathcal{P}^N$.
+    \item Markov chain  (Section~\ref{sec:markov}) - We use step 1 to count the amount of possible permutations of patterns, and we use step 2 for each permutation to evaluate its expectation.
+\end{enumerate}
+
+\subsection{Local Expectation\label{sec:local_expectation}}
+
+\begin{definition}[Meet of patterns]\label{def:meet}
+Let $\mathcal{P} = \{A, U_{1}, U_{2}, 4K\}$ and adjoin a fifth value 
+$\mathrm{Other}$. For $K_{1}, K_{2} \in \mathcal{P}$ define
+\[
+K_{1} \wedge K_{2} \;=\;
+\begin{cases}
+K_{2} & K_{1} = 4K, \\
+K_{1} & K_{2} = 4K, \\
+K_{1} & K_{1} = K_{2}, \\
+\mathrm{Other} & \text{otherwise.}
+\end{cases}
+\]
+We extend the gadget and leaf expectations of Lemmas~\ref{lem:mu-g} 
+and~\ref{lem:X-leaf-full} to $\mathrm{Other}$ by the convention
+\[
+\mu^{g}_{\mathrm{Other},\,\cdot} \;=\; \mu^{g}_{\cdot,\,\mathrm{Other}} 
+\;=\; \mu^{X}_{\cdot,\,\mathrm{Other}} \;=\; 0.
+\]
+
+As a direct consequence, for each outer leaf pattern $I\in\mathcal{P}$ 
+the set of inner patterns with non-zero leaf expectation is
+\[
+\mathcal{K}(I) \;:=\; \{B\in\mathcal{P}:\mu^{X}_{I,B}\neq 0\} \;=\;
+\begin{cases}
+\{A,U_{1},U_{2},4K\} & I=4K,\\
+\{A,4K\} & I\in\{A,U_{1},U_{2}\},
+\end{cases}\label{eq:K_I_remain}
+\]
+by inspection of the table in Lemma~\ref{lem:X-leaf-full}. We call 
+$\mathcal{K}(I)$ the \emph{admissible inner patterns} for some index pattern $I$.
+\end{definition}
+
+$K_{1} \wedge K_{2}$ is the $4$-replica pattern of two indices that are forced to agree iff both component patterns agree: 
+a $4K$ pattern imposes no constraint, two equal $2P$ patterns reinforce 
+each other, and two distinct $2P$ patterns share no common pair, 
+yielding $\mathrm{Other}$ (no two replicas coincide). The vanishing 
+convention reflects that in this last case the corresponding tensor 
+expectation has each replica appearing an odd number of times, hence 
+vanishes by $\mathbb{E}[Q] = \mathbb{E}[Q^{3}] = 0$ as in the proofs 
+of the lemmas to come~\ref{lem:mu-g} and~\ref{lem:mu-X}.
+
+
+\begin{lemma}[Pattern multiplicity]\label{lem:N-count}
+For a single index of dimension $\widetilde m$ and a pattern $s \in \mathcal{P}$, 
+define $N_{s}(\widetilde m)$ to be the number of $4$-tuples in 
+$[\widetilde m]^{4}$ realizing $s$. Then
+\[
+N_{s}(\widetilde m) \;=\;
+\begin{cases}
+\widetilde m & s = 4K, \\
+\widetilde m (\widetilde m - 1) & s \in \{A, U_{1}, U_{2}\}.
+\end{cases}
+\]
+\end{lemma}
+
+\begin{proof}
+Given some index $i$  we look at the 4 copies of that index, $i^{(a)},i^{(b)},i^{(c)},i^{(d)}$.
+If the 4 indices coincide in a $4K$  pattern, i.e. $$i^{(a)}=i^{(b)}=i^{(c)}=i^{(d)}$$ then we simply fix $i^{(a)}$  that has $\tilde{m}$ options, and the $4K$  pattern enforces all other indices to be the same. All in all, only $\tilde{m}$  options.
+If the $4$  indices coincide in one of the $2P$  patterns, w.l.o.g lets assume the pattern is $A$ we get that $$i^{(a)}=i^{(b)}\not=i^{(c)}=i^{(d)}$$
+then we fix $i^{(a)}$  which has $\tilde{m}$ possibilities, once chosen this defines $i^{(b)}$. Then, $i^{(c)}$  has $\tilde{m}-1$  possibilities because it must be different then the one chosen for $i^{(a)}$, once chosen it fixes $i^{(d)}$. All in all, $\tilde{m}(\tilde{m}-1)$  possibilities.
+
+\end{proof}
+
+We look again at Eq. (\ref{eq:S_4_copies}):
+\[
+\sum_{n_{1},n_{2}=1}^{m}\sum_{Z,K}^{m}\prod_{p=1}^{N-1}E\left[g^{(p,a)}g^{(p,b)}g^{(p,c)}g^{(p,d)}\right]\cdot\prod_{l=1}^{N}E\left[\prod_{q\in\{a,b,c,d\}}X_{i_{l}^{(q)}k_{l}^{(q)}}\right].
+\]
+It consists of two parts:
+\begin{itemize}
+\item Per index part : $\prod_{l=1}^{N}E\left[\prod_{q\in\{a,b,c,d\}}X_{i_{l}^{(q)}k_{l}^{(q)}}\right]$ - varies for the indices $i^{(a)},i^{(b)},i^{(c)},i^{(d)}$.
+\item The common part : $\sum_{n_{1},n_{2}=1}^{m}\sum_{Z,K}^{m}\prod_{p=1}^{N-1}E\left[g^{(p,a)}g^{(p,b)}g^{(p,c)}g^{(p,d)}\right]$ - is fixed for every index and can be written equivalently \begin{equation}
+    \sum_{n_{1},n_{2}=1}^{m}\sum_{Z,K=1}^{m}\prod_{q\in\{a,b,c,d\}}\left(g_{k_{1}^{(q)}k_{2}^{(q)}z_{1}^{(q)}}^{(1,q)}\prod_{p=2}^{N-2}g_{z_{p-1}k_{p+1}z_{p}}^{(p,q)}\cdot g_{z_{N-2}^{(q)}k_{N}^{(q)}\boldsymbol{n^{(q)}}}^{(N-1,q)}\right)\label{eq:common}.
+\end{equation}
+\end{itemize}
+We begin by inspecting the expectation of a single value in the equation above:
+\begin{align}
+\mathbb{E}[g^{(p)}_{k_1k_2z_1}] & =E\left[\sum_{l=1}^{m}G^{(1,p)}_{k_{1}k_{2}^{(1)}l}\cdot G^{(2,p)}_{lk_{i}^{(2)}z_{1}}\right]\\
+ & =\sum_{l=1}^{m}\mathbb{E}[G^{(1,p)}_{k_{1}k_{2}^{(1)}l}]\cdot \mathbb{E}[G^{(2,p)}_{lk_{i}^{(2)}z_{1}}]\\
+ & =0
+\end{align}
+
+Where we used expectation linearity and the assumption of the distribution.
+Each summand in Eq. (\ref{eq:common}) consists of a product of 4 copies of $g^{(p)}$. Since $\mathbb{E}[g^{(p)}]=0$, if the relevant indices don't coincide, the entire product vanishes. Therefore, each tensor replicas $g^{(p)}$ with $p\in [N-1]$  must correspond to a pattern in $\mathcal{P}$.  We evaluate the expectation received from the $g^{(p)}$  tensors in the following lemma.
+\begin{lemma}\label{lem:mu-g}
+Let
+\[
+g^{(p)}_{z_{p-1}\,k^{(1)}_{p+1}\,k^{(2)}_{p+1}\,z_{p}}
+\;=\;
+\sum_{l=1}^{m}\,
+G^{(p,1)}_{z_{p-1}\,k^{(1)}_{p+1}\,l}\;
+G^{(p,2)}_{l\,k^{(2)}_{p+1}\,z_{p}}
+\]
+where each entry in  $G^{(p,1)},G^{(p,2)}$  is drawn i.i.d.\ from
+a real distribution $Q$ satisfying
+\[
+\mathbb{E}[Q]=\mathbb{E}[Q^{3}]=0,\qquad
+\mathbb{E}[Q^{2}]=\sigma_{2},\qquad
+\mathbb{E}[Q^{4}]=\sigma_{4}.
+\]
+We fix the $4$-replica patterns of the gadget's two halves:
+\[
+L\in\{A,U_{1},U_{2},4K\}\ \text{ for the left-half outer indices }(z_{p-1},\,k^{(1)}_{p+1}) \text{ given from $G^{(p,1)}$},
+\]
+\[
+R\in\{A,U_{1},U_{2},4K\}\ \text{ for the right-half outer indices }(k^{(2)}_{p+1},\,z_{p})\text{ given from $G^{(p,2)}$}.
+\]
+Then
+\[
+\mu^{g}_{L,R}\ :=\ \mathbb{E}\!\left[\prod_{q\in\{a,b,c,d\}}g^{(p,q)}\right]
+\]
+is given by the $4\times 4$ table
+\[
+\renewcommand{\arraystretch}{1.4}
+\begin{array}{c|cccc}
+L\,\backslash\,R & A & U_{1} & U_{2} & 4K \\\hline
+A     & m^{2}\sigma_{2}^{4}
+      & m\sigma_{2}^{4}
+      & m\sigma_{2}^{4}
+      & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2} \\
+U_{1} & m\sigma_{2}^{4}
+      & m^{2}\sigma_{2}^{4}
+      & m\sigma_{2}^{4}
+      & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2} \\
+U_{2} & m\sigma_{2}^{4}
+      & m\sigma_{2}^{4}
+      & m^{2}\sigma_{2}^{4}
+      & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2} \\
+4K    & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2}
+      & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2}
+      & m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2}
+      & 3m(m-1)\sigma_{2}^{4}+m\sigma_{4}^{2} \\
+\end{array}
+\]
+\end{lemma}
+\begin{proof}
+The two halves $G^{(p,1)},G^{(p,2)}$ are independent and share only the
+"dummy" index~$l$. Substituting the definition of $g^{(p,q)}$ eq.(\eqref{eq:g_def}) and using the independence, we obtain
+\begin{equation}\label{eq:mug-raw}
+\mu^{g}_{L,R}\;=\!\!\sum_{l_{a},l_{b},l_{c},l_{d}=1}^{m}\!\!
+\mathbb{E}\!\Big[\prod_{q}G^{(p,1),q}_{z_{p-1}^{(q)}\,k^{(1),q}_{p+1}\,l_{q}}\Big]\;
+\mathbb{E}\!\Big[\prod_{q}G^{(p,2),q}_{l_{q}\,k^{(2),q}_{p+1}\,z_{p}^{(q)}}\Big].
+\end{equation}
+
+There are $m^{4}$ tuples of $(l_{a},l_{b},l_{c},l_{d})$. As stated above, only tuples that vanish are of pattern $4K$  or $2P$. 
+We denote $s\in\{4K, A, U_1,U_2\}$ as the pattern type for $(l_{a},l_{b},l_{c},l_{d})$. All other tuples have at least one $l_{q}$  that has an odd number of repetitions. We denote $N_s$  like in lemma (\ref{lem:N-count}).
+Splitting the sum from Eq.  (~\eqref{eq:mug-raw}) along these patterns, we obtain
+\begin{equation}\label{eq:mug-split}
+\mu^{g}_{L,R}\;=\!\!\sum_{s\in\{A,U_{1},U_{2},4K\}}\!\!
+N_{s}\cdot
+\underbrace{\mathbb{E}\!\Big[\prod_{q}G^{(p,1),q}_{z_{p-1}^{(q)}\,k^{(1),q}_{p+1}\,l_{q}}\Big]}_{\text{value }w_{L,s}}
+\cdot
+\underbrace{\mathbb{E}\!\Big[\prod_{q}G^{(p,2),q}_{l_{q}\,k^{(2),q}_{p+1}\,z_{p}^{(q)}}\Big]}_{\text{value }w_{R,s}}
+\;+\;0,
+\end{equation}
+where  $0$ accounts for tuples in a pattern that vanish, and $w_{L,s}, w_{R,s}$ are the per-half expectations, which depend only on the joint pattern realised by $(z_{p-1},k^{(1)}_{p+1},l)$ and
+$(l,k^{(2)}_{p+1},z_{p})$ respectively.
+
+\paragraph{Why tuples outside the four patterns vanish.}
+For each tensor $G^{(p,1),q}$, its three indices
+$(z_{p-1}^{(q)},k^{(1),q}_{p+1},l_{q})$ define a triple. The four
+replicas yield four such triples. We group replicas by equal triples; if
+any group has odd size, its contribution to the expectation is a product
+involving an odd power of a centred variable, which vanishes by
+$\mathbb{E}[G]=\mathbb{E}[G^{3}]=0$. Hence, non-vanishing requires the
+joint replica partition to be in $\{A,U_{1},U_{2},4K\}$. The same
+applies to $G^{(p,2)}$. In particular, the joint $l$-partition must lie
+in this set as well.
+
+\paragraph{Computing $w_{L,s}$.}
+For a fixed $L$ and $s$, the triple $(z_{p-1}, k^{(1)}_{p+1}, l)$ joins 
+the outer pattern $L$ with the $l$-pattern $s$ component-wise. The 
+joint pattern is the meet $L \wedge s$ (cf.\ Definition~\ref{def:meet}): 
+two replicas $q, q'$ index the same entry of $G^{(p,1)}$ iff they 
+coincide on the outer indices \emph{and} on $l$, i.e.\ iff they are in 
+the same block of $L \wedge s$.
+\begin{itemize}
+  \item If $L \wedge s = \mathrm{Other}$, the four replicas index four 
+        distinct entries (no coincidences). The expectation factors as 
+        a product of four single-$G$ moments, each equal to 
+        $\mathbb{E}[Q] = 0$, hence $w_{L,s} = 0$.
+  \item If $L \wedge s \in \{A, U_{1}, U_{2}\}$, the four replicas split 
+        into two pairs sharing entries, with the two pairs independent. 
+        The expectation factors as $\mathbb{E}[Q^{2}] \cdot \mathbb{E}[Q^{2}] = \sigma_{2} \cdot \sigma_{2}$, hence $w_{L,s} = \sigma_{2}^{2}$.
+  \item If $L \wedge s = 4K$, all four replicas index the same entry, 
+        contributing $\mathbb{E}[Q^{4}] = \sigma_{4}$, hence $w_{L,s} = \sigma_{4}$.
+\end{itemize}
+The same rules give $w_{R,s}$ from $R \wedge s$.
+
+\paragraph{When is $w_{L,s}$ non-zero?}
+By the previous paragraph, $w_{L,s} \ne 0$ iff $L \wedge s \ne \mathrm{Other}$. 
+Inspecting Definition~\ref{def:meet}, the set of $s \in \mathcal{P}$ satisfying 
+this is
+\[
+\mathcal{L}_{L} \;:=\; \{s \in \mathcal{P} : L \wedge s \ne \mathrm{Other}\}
+\;=\;
+\begin{cases}
+\{L, 4K\} & L \in \{A, U_{1}, U_{2}\}, \\
+\mathcal{P} & L = 4K,
+\end{cases}
+\]
+and similarly for $\mathcal{L}_{R}$. The only non-vanishing terms in 
+the sum~\eqref{eq:mug-split} are those with $s \in \mathcal{L}_{L} \cap \mathcal{L}_{R}$.
+
+\paragraph{Reading off the four cases.}
+For each $(L,R)$ we list the "surviving" $s\in\mathcal L_{L}\cap\mathcal L_{R}$ and the half values:
+
+\smallskip\noindent\emph{Case 1: $L=R\in\{A,U_{1},U_{2}\}$.}
+$\mathcal L_{L}\cap\mathcal L_{R}=\{L,4K\}$ and $w_{L,s}=w_{R,s}=\sigma_{2}^{2}$ for all $s$:
+\[
+\mu^{g}_{L,L}=N_{L}\sigma_{2}^{4}+N_{4K}\sigma_{2}^{4}
+=\bigl[m(m-1)+m\bigr]\sigma_{2}^{4}=m^{2}\sigma_{2}^{4}.
+\]
+
+\smallskip\noindent\emph{Case 2: $L\ne R$, both in $\{A,U_{1},U_{2}\}$.}
+$\mathcal L_{L}\cap\mathcal L_{R}=\{4K\}$ only. We obtain $w_{L,s}=w_{R,s}=\sigma_{2}^{2}$
+\[
+\mu^{g}_{L,R}=N_{4K}\sigma_{2}^{4}=m\sigma_{2}^{4}.
+\]
+
+\smallskip\noindent\emph{Case 3: exactly one of $L,R$ is $4K$.}
+W.L.G $L=4K,\ R\in\{A,U_{1},U_{2}\}$ and we get$\mathcal L_{L}\cap\mathcal L_{R}=\{R,4K\}$.
+\begin{itemize}\setlength\itemsep{1pt}
+  \item $s=R$: meet on left and right are a $2P$, so $w_{L,R}=w_{R,R}=\sigma_{2}^{2}$. Contribution: $N_{R}\sigma_{2}^{4}=m(m-1)\sigma_{2}^{4}$.
+  \item $s=4K$: meet on left is $4K\wedge 4K=4K$, so $w_{L,4K}=\sigma_{4}$. Meet on right is $R\wedge 4K=R$, so $w_{R,4K}=\sigma_{2}^{2}$. Contribution: $N_{4K}\sigma_{4}\sigma_{2}^{2}=m\sigma_{4}\sigma_{2}^{2}$.
+\end{itemize}
+\[
+\mu^{g}_{4K,R}=\mu_{L,4K}^g=m(m-1)\sigma_{2}^{4}+m\sigma_{4}\sigma_{2}^{2}.
+\]
+
+\smallskip\noindent\emph{Case 4: $L=R=4K$.}
+$\mathcal L_{L}\cap\mathcal L_{R}=\{A,U_{1},U_{2},4K\}$.
+\begin{itemize}\setlength\itemsep{1pt}
+  \item $s\in\{A,U_{1},U_{2}\}$: meet on each side is $4K\wedge s=s$ (a $2P$), so both halves give $\sigma_{2}^{2}$. Total contribution: $3\cdot N_{A}\sigma_{2}^{4}=3m(m-1)\sigma_{2}^{4}$.
+  \item $s=4K$: meet on each side is $4K$, so both halves give $\sigma_{4}$. Contribution: $N_{4K}\sigma_{4}^{2}=m\sigma_{4}^{2}$.
+\end{itemize}
+\[
+\mu^{g}_{4K,4K}=3m(m-1)\sigma_{2}^{4}+m\sigma_{4}^{2}.
+\]
+
+The four cases reproduce the table.
+\end{proof}
+Next we calculate the expectation of the index part from equation Eq. (\ref{eq:S_4_copies})
+And hence the following lemma:\begin{lemma}\label{lem:X-leaf-full}
+Let $X^{(p)} \in \mathbb{R}^{m \times d}$ be the leaf tensor with entries 
+$X^{(p)}_{i^{(p)}k^{(p)}}$ i.i.d.\ from a real distribution $Q$ satisfying 
+$\mathbb{E}[Q] = \mathbb{E}[Q^3] = 0,\ \mathbb{E}[Q^2] = \sigma_2,\ 
+\mathbb{E}[Q^4] = \sigma_4$. Fix the $4$-replica patterns of the two indices:
+\[
+I \in \{A, U_1, U_2, 4K\} \text{ for the outer (physical) index } i_l, \qquad
+B \in \{A, U_1, U_2, 4K\} \text{ for the inner (bond) index } k_l.
+\]
+Then
+\[
+\mu^X_{I,B} \;:=\; \mathbb{E}\!\left[\,\prod_{q\in\{a,b,c,d\}} 
+X^{(l),q}_{\,i^{(q)}_l,\,k^{(q)}_l}\right]
+\]
+is given by the $4\times 4$ table
+\[
+\begin{array}{c|cccc}
+I\,\backslash\,B & A & U_1 & U_2 & 4K \\ \hline
+A   & \sigma_2^2 & 0          & 0          & \sigma_2^2 \\
+U_1 & 0          & \sigma_2^2 & 0          & \sigma_2^2 \\
+U_2 & 0          & 0          & \sigma_2^2 & \sigma_2^2 \\
+4K  & \sigma_2^2 & \sigma_2^2 & \sigma_2^2 & \sigma_4
+\end{array}
+\]
+Equivalently, with $\wedge$ denoting the meet (componentwise refinement) of equivalence relations,
+\[
+\mu^X_{I,B} \;=\;
+\begin{cases}
+\sigma_4    & I\wedge B = 4K,\\
+\sigma_2^2  & I\wedge B \in \{A,U_1,U_2\},\\
+0           & \text{otherwise (meet contains an odd-sized block).}
+\end{cases}
+\]
+\end{lemma}
+
+\begin{proof}
+Two replicas $q,q'\in\{a,b,c,d\}$ index the same entry of $X^{(l)}$ iff 
+they agree on both $i_l$ and $k_l$, i.e.\ iff $q\sim_I q'$ and $q\sim_B q'$.
+We compute $\mu^X_{I,B}$ by enumerating the cases.
+
+\smallskip\noindent\textbf{Case $I=B=4K$.} All four replicas share the same 
+entry, so $\mu^X_{4K,4K} = \mathbb{E}[Q^4] = \sigma_4$.
+
+\smallskip\noindent\textbf{Case $I=4K,\ B\in\{A,U_1,U_2\}$.} The outer index 
+imposes no constraint, so the replica coincidences are exactly those of $B$: 
+the four replicas split into two pairs according to $B$. Each pair 
+contributes $\mathbb{E}[Q^2]=\sigma_2$, hence $\mu^X_{4K,B}=\sigma_2^2$. The 
+symmetric case $I\in\{A,U_1,U_2\},\ B=4K$ is identical.
+
+\smallskip\noindent\textbf{Case $I=B\in\{A,U_1,U_2\}$.} Both indices induce 
+the same pairing of replicas, so the four replicas split into two pairs 
+sharing the same entry. Each pair contributes $\sigma_2$, hence 
+$\mu^X_{I,I}=\sigma_2^2$.
+
+\smallskip\noindent\textbf{Case $I,B\in\{A,U_1,U_2\}$ with $I\ne B$.} 
+Any two distinct $2P$ partitions ($A,U_1,U_2$) share no common pair. Hence no two replicas index the same entry, and the four factors are independent:
+\[
+\mu^X_{I,B} \;=\; \prod_{q\in\{a,b,c,d\}} \mathbb{E}\!\left[X^{(l),q}_{i^{(q)}_l,k^{(q)}_l}\right]
+\;=\; \mathbb{E}[Q]^4 \;=\; 0.
+\]
+
+\smallskip
+Collecting the four cases yields the table.
+\end{proof}
+
+\subsection{Combinatorics}\label{sec:combinatorics}
+
+Lemmas~\ref{lem:mu-g} and~\ref{lem:mu-X} give the per-site per-pattern 
+expectations of the gadget and leaf tensors. To assemble these into a 
+transfer matrix we count, at each site, the number of index 
+configurations realizing each pattern and weight them by their 
+expectations. Each site $p\in\{3,\dots,N-2\}$ only needs to know how 
+site $p-1$ ended in order to determine how the shared bond acts: given 
+the bond pattern emitted by site $p-1$, we enumerate the legal patterns 
+at site $p$ and weight each by its expectation. This is the Markov 
+structure formalized in Theorem~\ref{thm:W-bulk} below.
+\subsubsection{Markov-like chains}\label{sec:markov}
+
+We now assemble the per-site weights into a transfer matrix. The 
+construction is \emph{Markov-like}: because adjacent gadgets share only 
+the bond index $z_{p-1}$, the joint contribution of sites 
+$1, \dots, p$ depends on sites $1, \dots, p-1$ only through the pattern 
+of that shared bond.
+\subsection{Transfer Matrix Formula}
+\begin{theorem}[Transfer matrix formula]\label{thm:W-bulk}
+Fix a gadget site $p \in \{3, \dots, N-2\}$ and a pattern $P_{p+1} \in \mathcal{P}$ for the outer index of the leaf  $X^{(p+1)}$ attached to $g^{(p)}$ through the shared index $k_{p+1}$ 
+(cf.~\eqref{eq:g_def}). 
+There exists a $4 \times 4$ matrix $W^{P_{p+1}}$, indexed by bond patterns $Z_{\mathrm{out}}, Z_{\mathrm{in}} \in \mathcal{P}$ in the basis 
+$(A, U_{1}, U_{2}, 4K)$, such that the joint contribution of gadget $g^{(p)}$ together with leaf $X^{(p+1)}$ to the sum~\eqref{eq:S_4_copies}, conditional on the incoming bond pattern $Z_{\mathrm{in}}$ of $z_{p-1}$ and the outgoing bond pattern $Z_{\mathrm{out}}$ of $z_{p}$, is the entry 
+$W^{P_{p+1}}_{Z_{\mathrm{out}}, Z_{\mathrm{in}}}$. Moreover,
+\begin{equation}\label{eq:W-bulk}
+W^{P_{p+1}}_{Z_{\mathrm{out}}, Z_{\mathrm{in}}}
+\;=\;
+N_{Z_{\mathrm{out}}}(m)
+\!\!\sum_{K \,\in\, \mathcal{K}(P_{p+1})}\!\! \mu^{X}_{P_{p+1}, K}
+\!\!\!\!\sum_{\substack{K_{1}, K_{2} \in \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, K}}\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,Z_{\mathrm{in}} \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}.
+\end{equation}
+\end{theorem}
+\begin{proof}
+\textbf{Setting up the model.} 
+We want to count and weigh all possible permutation for a chain sized $p$. We look at the site $p$ of our network, which consists of $g^{(p)} \text{ and } X^{(p+1)}$, and note that we have 5 new indices from the to sum on, each with their own restriction. 
+We remember the indices for $g_{z_{p-1}k_{p+1}^{(1)}k_{p+1}^{(2)}z_{p}}^{(p)}$, eq.(\ref{eq:g_def}) and $X^{(p+1)}_{k_{p+1},i_{p+1}}$, eq.(\ref{eq:S_4_copies}). 
+Meaning we have 5 new indices with the following restrictions:
+\begin{enumerate}
+    \item $z_{p-1}$  is shared with $g^{(p-1)}$, so we assume it is already fixed with a pattern $Z_{in}\in \mathcal{P}$   by the previous $p-1$  sized chain.
+    \item $k_{p+1}^{(1)}k_{p+1}^{(2)}$  are shared between $g^{(p)}$  and $X^{(p+1)}$. Because $X^{(p+1)}$  is directly connected to the choice of index $i_{p+1}$ makes the $k$  indices act in a cretin way.
+    \item $z_p$  is shared with the next tensor, $g^{(p+1)}$, so we remember its pattern $Z_{out}\in\mathcal{P}$ .
+\end{enumerate}
+
+With all of this in mind, we construct a matrix $W^{(P_{p+1})}\in \R^{4\times 4}$ for our site, on the basis $\mathcal{P}=\{4K,A,U_1,U_2\}$. Where each element is the weight and count of the non vanishing permutation starting with a pattern $Z_{in}$  and ending with $Z_{out}$. The value itself is based on the lemmas from earlier \ref{lem:mu-g} and~\ref{lem:X-leaf-full}.
+
+\smallskip\noindent\textbf{Gadget layer.} 
+The gadget $g^{(p)}$ is built from two halves, see Eq.~\ref{eq:g_def}, 
+$G^{(p,1)}$ and $G^{(p,2)}$. The left half $G^{(p,1)}$ carries the 
+indices $(z_{p-1}, k^{(1)}_{p+1})$ and the right half $G^{(p,2)}$ 
+carries $(k^{(2)}_{p+1}, z_{p})$. Two replicas agree on a half iff 
+they agree on both of its outer indices, so the possible patterns of the two 
+halves are
+\[
+L \;=\; Z_{\mathrm{in}} \wedge K_{1}, \qquad 
+R \;=\; K_{2} \wedge Z_{\mathrm{out}},
+\]
+where $K_{1}, K_{2} \in \mathcal{P}$ are the patterns of the two factors of $k_{p+1}$. 
+For fixed $(K_{1}, K_{2})$ by Lemma~\ref{lem:N-count} there are $N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})$ value-tuples for the factors, and by Lemma~\ref{lem:mu-g} they contribute the gadget weight 
+$\mu^{g}_{L, R}$. Clashes are absorbed automatically: if $L = \mathrm{Other}$ or $R = \mathrm{Other}$, the gadget factor vanishes by the convention of Definition~\ref{def:meet}.
+We get that for some fixed $(K_1,K_2)$  the gadget $g^{(p)}$ adds $$N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,Z_{\mathrm{in}} \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}$$
+\smallskip\noindent\textbf{Leaf layer (middle).} 
+Given that the index $i_{(p+1)}$  of tensor $X^{(p+1)}$ is of a pattern $P_{p+1}$ we get that the values that arise from the replicas of $X^{(p+1)}$ are non-vanishing only when $K\in\mathcal{K}(P_{p+1})$, this can be seen by remembering the def (\ref{def:meet})  with the lemma (\ref{lem:X-leaf-full}).
+Now for a given $K=K_1\land K_2$  we get that the leaf $X^{(p+1)}$  adds a weight of $\mu_{P_{p+1},K}^X$   as can be seen in lemma (\ref{lem:X-leaf-full})
+
+With both of these paragraphs in mind, we get that the restrictions on $z_{p-1},i_{p+1},k_{p+1}$  induce the formula $$\sum_{K \,\in\, \mathcal{K}(P_{p+1})}\!\! \mu^{X}_{P_{p+1}, K}
+\!\!\!\!\sum_{\substack{K_{1}, K_{2} \in \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, K}}\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,Z_{\mathrm{in}} \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}$$
+
+\smallskip\noindent\textbf{Outgoing-bond layer (outermost).} 
+Finally, we do this for every possible independent index $z_{p}$  which is only restricted by the pattern we are trying to calculate for, $Z_{out}$  so there are $N_{Z_{out}}(m)$  options. Meaning we get the final element formula (\ref{eq:W-bulk})
+\end{proof}
+
+\subsubsection{Explicit Transition Matrices}
+From the theorem we can write explicitly all 4 cases.
+\noindent In the basis $(A, U_{1}, U_{2}, 4K)$ with $m_{1} m_{2} = m$, define the auxiliary 
+polynomials
+\begin{align*}
+\alpha       &\;:=\; (m-1)\,\sigma_{2}^{2} + \sigma_{4}, 
+\\ \beta        &\;:=\; (m_{1}+m_{2}-2)\,\sigma_{2}^{2} + \sigma_{4}, \\
+\beta_{m_{1}} &\;:=\; (m+m_{1}-2)\,\sigma_{2}^{2} + \sigma_{4},
+\\ \beta_{m_{2}} &\;:=\; (m+m_{2}-2)\,\sigma_{2}^{2} + \sigma_{4}, \\
+\rho_{m_{1}}  &\;:=\; (m\,m_{1}-1)\,\sigma_{2}^{2} + \sigma_{4},
+\\ \rho_{m_{2}}  &\;:=\; (m\,m_{2}-1)\,\sigma_{2}^{2} + \sigma_{4}, \\[4pt]
+\Gamma(a,b)  &\;:=\; \bigl(m(m-1) + 2a - b - 1\bigr)\sigma_{2}^{4}
+              + (m+b-2)\,\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}, \\
+\Theta       &\;:=\; \bigl(m(m+2) - (m_{1}+m_{2}) - 1\bigr)\sigma_{2}^{4}
+              + (m_{1}+m_{2}-2)\,\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}, \\
+\Delta       &\;:=\; \bigl(3 m(m-1) - (m_{1}+m_{2}-2)\bigr)\sigma_{2}^{6}
+              + 3(m+m_{1}+m_{2}-3)\,\sigma_{2}^{4}\sigma_{4} + \sigma_{4}^{3}.
+\end{align*}
+\[
+W^{4K} \;=\; m^{3}\,\sigma_{2}^{2}\,
+\begin{pmatrix}
+m(m-1)\,\sigma_{2}^{2}\,\alpha & (m-1)\,\sigma_{2}^{2}\,\beta   & (m-1)\,\sigma_{2}^{2}\,\beta   & (m-1)\,\Gamma(m_{1},m_{2}) \\[2pt]
+(m-1)\,\sigma_{2}^{2}\,\beta   & m(m-1)\,\sigma_{2}^{2}\,\alpha & (m-1)\,\sigma_{2}^{2}\,\beta   & (m-1)\,\Gamma(m_{1},m_{2}) \\[2pt]
+(m-1)\,\sigma_{2}^{2}\,\beta   & (m-1)\,\sigma_{2}^{2}\,\beta   & m(m-1)\,\sigma_{2}^{2}\,\alpha & (m-1)\,\Gamma(m_{1},m_{2}) \\[2pt]
+\Gamma(m_{2},m_{1})            & \Gamma(m_{2},m_{1})            & \Gamma(m_{2},m_{1})            & \Delta
+\end{pmatrix}.
+\]
+
+\[
+W^{A} \;=\; m^{3}\,\sigma_{2}^{2}\,
+\begin{pmatrix}
+m^{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{2}\,\rho_{m_{1}} \\[2pt]
+m_{1}(m-1)\,\sigma_{2}^{4} & m(m-1)\,\sigma_{2}^{4}    & (m-1)\,\sigma_{2}^{4}      & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+m_{1}(m-1)\,\sigma_{2}^{4} & (m-1)\,\sigma_{2}^{4}     & m(m-1)\,\sigma_{2}^{4}    & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+m_{1}\,\sigma_{2}^{2}\,\rho_{m_{2}} & \sigma_{2}^{2}\,\beta_{m_{2}}         & \sigma_{2}^{2}\,\beta_{m_{2}}         & \Theta
+\end{pmatrix}.
+\]
+\[
+W^{U_{1}} \;=\; m^{3}\,\sigma_{2}^{2}\,
+\begin{pmatrix}
+m(m-1)\,\sigma_{2}^{4}      & m_{1}(m-1)\,\sigma_{2}^{4} & (m-1)\,\sigma_{2}^{4}      & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+m_{2}(m-1)\,\sigma_{2}^{4} & m^{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{2}\,\rho_{m_{2}} \\[2pt]
+(m-1)\,\sigma_{2}^{4}      & m_{1}(m-1)\,\sigma_{2}^{4} & m(m-1)\,\sigma_{2}^{4}     & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+\sigma_{2}^{2}\,\beta_{m_{2}}         & m_{1}\,\sigma_{2}^{2}\,\rho_{m_{2}} & \sigma_{2}^{2}\,\beta_{m_{2}}         & \Theta
+\end{pmatrix}.
+\]
+
+\[
+W^{U_{2}} \;=\; m^{3}\,\sigma_{2}^{2}\,
+\begin{pmatrix}
+m(m-1)\,\sigma_{2}^{4}      & (m-1)\,\sigma_{2}^{4}      & m_{1}(m-1)\,\sigma_{2}^{4} & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+(m-1)\,\sigma_{2}^{4}      & m(m-1)\,\sigma_{2}^{4}     & m_{1}(m-1)\,\sigma_{2}^{4} & (m-1)\,\sigma_{2}^{2}\,\beta_{m_{1}}     \\[2pt]
+m_{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{4} & m^{2}(m-1)\,\sigma_{2}^{4} & m_{2}(m-1)\,\sigma_{2}^{2}\,\rho_{m_{2}} \\[2pt]
+\sigma_{2}^{2}\,\beta_{m_{2}}         & \sigma_{2}^{2}\,\beta_{m_{2}}         & m_{1}\,\sigma_{2}^{2}\,\rho_{m_{2}} & \Theta
+\end{pmatrix}.
+\]
+
+
+\begin{theorem}[Initial vector]\label{thm:u-init}
+With $N \ge 3$ and patterns $P_{1}, P_{2} \in \mathcal{P}$ be the first 2 for the indices of the leaves $X^{(1)}$ and $X^{(2)}$.
+For each of the $16$ choices of $(P_{1}, P_{2}) \in \mathcal{P}^{2}$, the joint 
+contribution of $X^{(1)}, X^{(2)}$, and the first gadget $g^{(1)}$ to 
+the sum~\eqref{eq:S_4_copies} is a vector 
+$u^{(P_{1}, P_{2})}_{\mathrm{init}} \in \mathbb{R}^{4}$ indexed by the outgoing bond pattern $Z_{\mathrm{out}} \in \mathcal{P}$ of $z_{1}$, 
+whose entries are explicit polynomials in $(m, m_{1}, m_{2}, \sigma_{2}, 
+\sigma_{4})$ as by the formula:
+\begin{equation}\label{eq:u-init}
+\bigl[u^{(P_{1}, P_{2})}_{\mathrm{init}}\bigr]_{Z_{\mathrm{out}}}
+\;=\;
+N_{Z_{\mathrm{out}}}(m)
+\!\!\!\!\!\sum_{\substack{K \,\in\, \mathcal{K}(P_{1}) \\ J \,\in\, \mathcal{K}(P_{2})}}\!\!\!\!\!
+N_{K}(m)\, \mu^{X}_{P_{1}, K}\, \mu^{X}_{P_{2}, J}
+\!\!\!\!\!\sum_{\substack{K_{1}, K_{2} \,\in\, \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, J}}\!\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,K \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}.
+\end{equation}
+
+
+\end{theorem}
+\begin{proof}
+\textbf{Setting up the model.} 
+We want to count and weigh all possible permutations for the start of our chain, i.e. for $p=1,2$. We look at sites 1 and 2 of our network, which consist of $X^{(1)}, g^{(1)}$ and $X^{(2)}$, and this time we have 6 indices to sum on.
+We remember the indices for $g_{k_{1}k_{2}^{(1)}k_{2}^{(2)}z_{1}}^{(1)}$, eq.(\ref{eq:g_def}), and the leaves $X^{(1)}_{k_{1},i_{1}}, X^{(2)}_{k_{2},i_{2}}$, eq.(\ref{eq:S_4_copies}).
+Note that, unlike interior gadgets, the left outer index of $g^{(1)}$ is the full unfactored inner index $k_{1}$ of $X^{(1)}$, of dimension $m$.
+We have the following restrictions:
+\begin{enumerate}
+    \item $i_{1}, i_{2}$ are the outer indices of $X^{(1)}, X^{(2)}$, so we assume they are already fixed with patterns $P_{1}, P_{2} \in \mathcal{P}$.
+    \item $k_{1}$ is shared between $g^{(1)}$ and $X^{(1)}$. Because $X^{(1)}$ is directly connected to the choice of index $i_{1}$ makes the $k_{1}$ index act in a certain way.
+    \item $k_{2}^{(1)}k_{2}^{(2)}$ are shared between $g^{(1)}$ and $X^{(2)}$. Because $X^{(2)}$ is directly connected to the choice of index $i_{2}$ makes the $k$ indices act in a certain way.
+    \item $z_{1}$ is shared with the next tensor, $g^{(2)}$, so we remember its pattern $Z_{out}\in\mathcal{P}$.
+\end{enumerate}
+
+\smallskip\noindent\textbf{Gadget layer.} 
+Exactly like the previous theorem. The gadget yields the following counting and weight $$
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,K \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}$$
+
+\smallskip\noindent\textbf{Leaf layer (middle).} 
+Given that the index $i_{1}$ of tensor $X^{(1)}$ is of a pattern $P_{1}$, we get that the values that arise from the replicas of $X^{(1)}$ are non-vanishing only when $K\in\mathcal{K}(P_{1})$, this can be seen by remembering the def (\ref{def:meet}) with the lemma (\ref{lem:X-leaf-full}). For such a $K$, the leaf $X^{(1)}$ adds a weight of $\mu^{X}_{P_{1},K}$.
+Similarly, given that the index $i_{2}$ of tensor $X^{(2)}$ is of a pattern $P_{2}$, the replicas of $X^{(2)}$ are non-vanishing only when $J := K_{1} \wedge K_{2} \in \mathcal{K}(P_{2})$, and for such $J$ the leaf $X^{(2)}$ adds a weight of $\mu^{X}_{P_{2},J}$.
+Moreover, we note that only the $J$  pattern affects both sides of $g^{(1)}$, as seen in the inner sum.
+We get that the restrictions on $i_{1},i_{2},k_{1},k_{2}$ induce the formula $$\!\!\!\!\!\sum_{\substack{K \,\in\, \mathcal{K}(P_{1}) \\ J \,\in\, \mathcal{K}(P_{2})}}\!\!\!\!\!
+N_{K}(m)\, \mu^{X}_{P_{1}, K}\, \mu^{X}_{P_{2}, J}
+\!\!\!\!\!\sum_{\substack{K_{1}, K_{2} \,\in\, \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, J}}\!\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,K \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}$$
+
+\smallskip\noindent\textbf{Outgoing-bond layer (outermost).} 
+Again, we do this for every possible independent index $z_{1}$ restricted by the pattern $Z_{out}$ with $N_{Z_{out}}(m)$ options. Meaning we get the final element formula (\ref{eq:u-init})
+\end{proof}
+\subsubsection{Explicit starting state}
+\paragraph{Symmetry.} 
+Every initial vector satisfies the $U_{1} \leftrightarrow U_{2}$ symmetry
+\[
+\bigl[u^{(P_{1}, P_{2})}_{\mathrm{init}}\bigr]_{Z}
+\;=\;
+\bigl[u^{(\sigma P_{1}, \sigma P_{2})}_{\mathrm{init}}\bigr]_{\sigma Z},
+\]
+where $\sigma : \mathcal{P} \to \mathcal{P}$ swaps $U_{1}$ and $U_{2}$ and fixes $A, 4K$. 
+It therefore suffices to list the $10$ orbit representatives below; the remaining $6$ 
+vectors follow by applying $\sigma$ to both leaf patterns and the bond pattern. For the 
+$4$ self-symmetric representatives ($P_{1}, P_{2} \in \{A, 4K\}$), the symmetry forces 
+$[u]_{U_{1}} = [u]_{U_{2}}$.
+
+\paragraph{$u^{(A, A)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(A, A)}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{3} - m_{2})\sigma_{2}^{2} + m_{2}\sigma_{4}\bigr]\\
+[u^{(A, A)}_{\mathrm{init}}]_{U_{1}, U_{2}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m\,m_{1} + m - 2)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(A, A)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{4}\bigl[
+       (m^{3} - m\,m_{1} + 2m - m_{2} - 1)\sigma_{2}^{4}
+       + (m\,m_{1} + m_{2} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{(A, U_{1})}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(A, U_{1})}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{2} + m_{1} - 2)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(A, U_{1})}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{2} + m\,m_{2} - 2m_{2})\sigma_{2}^{2} + m_{2}\sigma_{4}\bigr]\\
+[u^{(A, U_{1})}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(2m + m_{1} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(A, U_{1})}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{4}\bigl[
+       (2m^{2} + m\,m_{2} - m - m_{1} - 2m_{2} + 1)\sigma_{2}^{4}
+       + (m + m_{1} + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{(A, 4K)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(A, 4K)}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{3} - m^{2} + 2m_{1} - m_{2} - 1)\sigma_{2}^{4}
+       + (m^{2} + m_{2} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(A, 4K)}_{\mathrm{init}}]_{U_{1}, U_{2}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} + m\,m_{2} - 3m + m_{1} - 2m_{2} + 1)\sigma_{2}^{4}
+       + (2m + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(A, 4K)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{2}\bigl[
+       (m^{3} + m^{2} - m\,m_{1} + 2m\,m_{2} - 3m - 2m_{1} - 5m_{2} + 7)\sigma_{2}^{6}\\
+  &\hspace{4em}
+       + (m^{2} + m\,m_{1} + 2m_{1} + 3m_{2} - 7)\sigma_{2}^{4}\sigma_{4}
+       + (m - 1)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]
+\end{align*}
+
+\paragraph{$u^{(U_{1}, A)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(U_{1}, A)}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{2} + m\,m_{2} - 2m_{2})\sigma_{2}^{2} + m_{2}\sigma_{4}\bigr]\\
+[u^{(U_{1}, A)}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{2} + m_{1} - 2)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, A)}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(2m + m_{1} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, A)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{4}\bigl[
+       (m^{2} + 2m\,m_{2} - m - m_{1} - 2m_{2} + 1)\sigma_{2}^{4}
+       + (m + m_{1} + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+
+\paragraph{$u^{(U_{1}, U_{1})}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(U_{1}, U_{1})}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(2m + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{1})}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m^{3} - m_{1})\sigma_{2}^{2} + m_{1}\sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{1})}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m + m_{1} + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{1})}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{4}\bigl[
+       (m^{3} + m^{2} - m\,m_{2} - m_{1} - 2)\sigma_{2}^{4}
+       + (m + m_{1} + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{(U_{1}, U_{2})}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(U_{1}, U_{2})}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(2m + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{2})}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m + m_{1} + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{2})}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{6}\,(m-1)\bigl[(m + m_{1} + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{(U_{1}, U_{2})}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{4}\bigl[
+       (2m^{2} - m + m_{1} + m_{2} - 4)\sigma_{2}^{4}
+       + (m + m_{1} + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{(U_{1}, 4K)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(U_{1}, 4K)}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} + m\,m_{2} - 3m + m_{1} - 2m_{2} + 1)\sigma_{2}^{4}
+       + (2m + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(U_{1}, 4K)}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{3} - m^{2} + 2m_{1} - m_{2} - 1)\sigma_{2}^{4}
+       + (m^{2} + m_{2} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(U_{1}, 4K)}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} + m\,m_{2} - 3m + m_{1} - 2m_{2} + 1)\sigma_{2}^{4}
+       + (2m + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(U_{1}, 4K)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{2}\bigl[
+       (m^{3} + 2m^{2} - m\,m_{1} + m\,m_{2} - 6m + m_{1} - 2m_{2} + 4)\sigma_{2}^{6}\\
+  &\hspace{4em}
+       + (2m^{2} + m\,m_{1} - 4m - 2m_{1} - m_{2} + 4)\sigma_{2}^{4}\sigma_{4}
+       + (m + m_{2} - 2)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]
+\end{align*}
+
+\paragraph{$u^{(4K, A)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(4K, A)}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{3} - m^{2} + 2m\,m_{2} - 2m_{2})\sigma_{2}^{4}
+       + (m^{2} - m_{2})\sigma_{2}^{2}\sigma_{4} + m_{2}\sigma_{4}^{2}\bigr]\\
+[u^{(4K, A)}_{\mathrm{init}}]_{U_{1}, U_{2}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} - m_{1} - 1)\sigma_{2}^{4}
+       + (m + m_{1} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(4K, A)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{2}\bigl[
+       (m^{3} + m^{2} - m\,m_{1} + 2m\,m_{2} - 6m + m_{1} - 2m_{2} + 4)\sigma_{2}^{6}\\
+  &\hspace{4em}
+       + (m^{2} + m\,m_{1} + 4m - 2m_{1} - m_{2} - 3)\sigma_{2}^{4}\sigma_{4}
+       + (m_{1} + m_{2} - 2)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]
+\end{align*}
+
+\paragraph{$u^{(4K, U_{1})}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(4K, U_{1})}_{\mathrm{init}}]_{A}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} - m_{1} - 1)\sigma_{2}^{4}
+       + (m + m_{1} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(4K, U_{1})}_{\mathrm{init}}]_{U_{1}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{3} - m\,m_{1} + 2m\,m_{2} - 2m_{2})\sigma_{2}^{4}
+       + (m\,m_{1} - m_{2})\sigma_{2}^{2}\sigma_{4} + m_{2}\sigma_{4}^{2}\bigr]\\
+[u^{(4K, U_{1})}_{\mathrm{init}}]_{U_{2}}
+  &= m^{4}\,\sigma_{2}^{4}\,(m-1)\bigl[
+       (m^{2} + m\,m_{1} - m_{1} - 1)\sigma_{2}^{4}
+       + (m + m_{1} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{(4K, U_{1})}_{\mathrm{init}}]_{4K}
+  &= m^{4}\,\sigma_{2}^{2}\bigl[
+       (m^{3} + m^{2} - m\,m_{1} + 2m\,m_{2} - 6m + m_{1} - 2m_{2} + 4)\sigma_{2}^{6}\\
+  &\hspace{4em}
+       + (m^{2} + m\,m_{1} + 4m - 2m_{1} - m_{2} - 3)\sigma_{2}^{4}\sigma_{4}
+       + (m_{1} + m_{2} - 2)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]
+\end{align*}
+
+\paragraph{$u^{(4K, 4K)}_{\mathrm{init}}$.}
+\begin{align*}
+[u^{(4K, 4K)}_{\mathrm{init}}]_{A, U_{1}, U_{2}}
+  &= m^{4}\,\sigma_{2}^{2}\,(m-1)\bigl[
+       (m^{3} - 2m^{2} + 2m\,m_{1} + 2m\,m_{2} - 3m - 2m_{1} - 2m_{2} + 4)\sigma_{2}^{6}\\
+  &\hspace{4em}
+       + (2m^{2} + 2m_{1} - m_{2} - 3)\sigma_{2}^{4}\sigma_{4}
+       + (m + m_{2} - 2)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]\\
+[u^{(4K, 4K)}_{\mathrm{init}}]_{4K}
+  &= m^{4}\bigl[
+       3(m^{3} - 2m^{2} - m\,m_{1} + 2m\,m_{2} + m_{1} - 2m_{2} + 1)\sigma_{2}^{8}\\
+  &\hspace{2em}
+       + 3(2m^{2} + m\,m_{1} - 4m - 2m_{1} - m_{2} + 4)\sigma_{2}^{6}\sigma_{4}
+       + 3(2m + m_{1} + m_{2} - 4)\sigma_{2}^{4}\sigma_{4}^{2} + \sigma_{4}^{4}\bigr]
+\end{align*}
+\paragraph{End vector $u^{P_{N}}_{\mathrm{end}}$.}
+
+We close the chain. At this point, the contributions of sites $1, \dots, N-1$ 
+are encoded in a vector indexed by the pattern of the bond $z_{N-2}$, obtained 
+by contracting $u^{(P_{1}, P_{2})}_{\mathrm{init}}$ with the bulk transfer 
+matrices of Theorem~\ref{thm:W-bulk}. The remaining task is to absorb 
+the boundary site $N$, consisting of leaf $X^{(N)}$ and the last gadget 
+$g^{(N-1)}$, into a vector $u^{P_{N}}_{\mathrm{end}}$ that contracts with 
+the chain state to produce a scalar.
+
+Unlike interior gadgets, $g^{(N-1)}$ has no outgoing bond $z_{N-1}$: 
+its fourth index is the output index $n$ of the sketching tensor 
+network~\eqref{eq:g_def}. The boundary trace structure of the original 
+sum~\eqref{eq:S_4_copies} pairs the four replicas of $n$ as 
+$n^{(a)} = n^{(b)}$ and $n^{(c)} = n^{(d)}$, so the pattern of $n$ is 
+restricted to $\{A, 4K\}$ and is summed over rather than fixed.
+
+\begin{theorem}[End vector]\label{thm:u-end}
+Fix $N \ge 3$ and a pattern $P_{N} \in \mathcal{P}$ for the outer index of the boundary leaf $X^{(N)}$. The joint contribution of leaf $X^{(N)}$ and gadget $g^{(N-1)}$ to the sum~\eqref{eq:S_4_copies}, conditional on 
+the incoming bond pattern $Z_{\mathrm{in}}$ of $z_{N-2}$, is the entry $\bigl[u^{P_{N}}_{\mathrm{end}}\bigr]_{Z_{\mathrm{in}}}$ of a vector $u^{P_{N}}_{\mathrm{end}} \in \mathbb{R}^{4}$ indexed in the order $(A, U_{1}, U_{2}, 4K)$, with
+\begin{equation}\label{eq:u-end}
+\bigl[u^{P_{N}}_{\mathrm{end}}\bigr]_{Z_{\mathrm{in}}}
+\;=\;
+\sum_{\mathcal{N} \in \{A, 4K\}} N_{\mathcal{N}}(m)
+\!\!\sum_{K\,\in\, \mathcal{K}(P_{N})}\!\! \mu^{X}_{P_{N}, K}
+\!\!\!\!\sum_{\substack{K_{1}, K_{2} \,\in\, \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, K}}\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,Z_{\mathrm{in}} \wedge K_{1},\, K_{2} \wedge \mathcal{N}}.
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+\textbf{Setting up the model.} 
+We close the chain by enumerating site $N$, which consists of $X^{(N)}$ 
+and $g^{(N-1)}$. We remember the indices of $g^{(N-1)}_{z_{N-2} k^{(1)}_{N} k^{(2)}_{N} n}$, 
+eq.~\eqref{eq:g_def}, and the leaf $X^{(N)}_{k_{N}, i_{N}}$, eq.~\eqref{eq:S_4_copies}. 
+Note that, unlike interior gadgets, the right outer index of $g^{(N-1)}$ 
+is the output index $n$ rather than an outgoing bond.
+
+The restrictions are the same as before, with an added restriction the arises from the inner product structure of eq. (\ref{eq:S_dot_prod_def}). We get that $$n^{(a)}=n^{(b)}\land n^{(c)}=n^{(d)}$$
+\smallskip\noindent\textbf{Gadget layer.}
+The right half $G^{(N-1, 2)}$ now carries the indices $(k^{(2)}_{N}, n)$ 
+instead of $(k^{(2)}_{p+1}, z_{p})$, so the right half pattern is 
+$R = K_{2} \wedge \mathcal{N}$ where $\mathcal{N}$ is the pattern of $n$. 
+The left half is unchanged, $L = Z_{\mathrm{in}} \wedge K_{1}$.
+
+\smallskip\noindent\textbf{Leaf layer.}
+Identical to Theorem~\ref{thm:W-bulk}: the leaf $X^{(N)}$ contributes 
+$\mu^{X}_{P_{N}, K}$ where $K:= K_{1} \wedge K_{2}$, non-vanishing only 
+when $K \in \mathcal{K}(P_{N})$.
+
+\smallskip\noindent\textbf{Output-index layer.}
+In place of the outgoing-bond layer, the output index $n$ is summed 
+rather than fixed: for each pattern $\mathcal{N} \in \{A, 4K\}$ admitted 
+by the boundary trace, there are $N_{\mathcal{N}}(m)$ value-tuples 
+by Lemma~\ref{lem:N-count}, and we sum over both admissible patterns.
+
+\medskip
+Collecting the three layers yields~\eqref{eq:u-end}.
+\end{proof}
+\subsubsection{ Explicit End vectors $u_{end}$}
+\paragraph{$u^{A}_{\mathrm{end}}$.}
+\begin{align*}
+[u^{A}_{\mathrm{end}}]_{A}
+  &= m^{3}\,\sigma_{2}^{4}\bigl[(m^{3} - m_{1})\sigma_{2}^{2} + m_{1}\sigma_{4}\bigr]\\
+[u^{A}_{\mathrm{end}}]_{U_{1}, U_{2}}
+  &= m^{3}\,\sigma_{2}^{4}\bigl[(m\,m_{2} + m - 2)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{A}_{\mathrm{end}}]_{4K}
+  &= m^{3}\,\sigma_{2}^{2}\bigl[
+       (m^{3} - m\,m_{2} + 2m - m_{1} - 1)\sigma_{2}^{4}
+       + (m\,m_{2} + m_{1} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{U_{1}}_{\mathrm{end}}$.}
+\begin{align*}
+[u^{U_{1}}_{\mathrm{end}}]_{A}
+  &= m^{3}\,\sigma_{2}^{4}\bigl[(m^{2} + m_{2} - 2)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{U_{1}}_{\mathrm{end}}]_{U_{1}}
+  &= m^{3}\,\sigma_{2}^{4}\bigl[(m^{2} + m\,m_{1} - 2m_{1})\sigma_{2}^{2} + m_{1}\sigma_{4}\bigr]\\
+[u^{U_{1}}_{\mathrm{end}}]_{U_{2}}
+  &= m^{3}\,\sigma_{2}^{4}\bigl[(2m + m_{2} - 3)\sigma_{2}^{2} + \sigma_{4}\bigr]\\
+[u^{U_{1}}_{\mathrm{end}}]_{4K}
+  &= m^{3}\,\sigma_{2}^{2}\bigl[
+       (2m^{2} + m\,m_{1} - m - 2m_{1} - m_{2} + 1)\sigma_{2}^{4}
+       + (m + m_{1} + m_{2} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]
+\end{align*}
+
+\paragraph{$u^{4K}_{\mathrm{end}}$.}
+\begin{align*}
+[u^{4K}_{\mathrm{end}}]_{A}
+  &= m^{3}\,\sigma_{2}^{2}\bigl[
+       (m^{3} - m^{2} - m_{1} + 2m_{2} - 1)\sigma_{2}^{4}
+       + (m^{2} + m_{1} - 2)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{4K}_{\mathrm{end}}]_{U_{1}, U_{2}}
+  &= m^{3}\,\sigma_{2}^{2}\bigl[
+       (m^{2} + m\,m_{1} + m\,m_{2} - 3m - 2m_{1} + m_{2} + 1)\sigma_{2}^{4}
+       + (2m + m_{1} - 3)\sigma_{2}^{2}\sigma_{4} + \sigma_{4}^{2}\bigr]\\
+[u^{4K}_{\mathrm{end}}]_{4K}
+  &= m^{3}\bigl[
+       (m^{3} + m^{2} + 2m\,m_{1} - m\,m_{2} - 3m - 5m_{1} - 2m_{2} + 7)\sigma_{2}^{6}\\
+  &\hspace{2em}
+       + (m^{2} + m\,m_{2} + 3m_{1} + 2m_{2} - 7)\sigma_{2}^{4}\sigma_{4}
+       + (m - 1)\sigma_{2}^{2}\sigma_{4}^{2} + \sigma_{4}^{3}\bigr]
+\end{align*}
+\subsection{Glueing the Theorems Together}
+\begin{proof}[Proof of Theorem~\ref{thm:per-entry-M}]
+The index quadruple $(i^{a},i^{b},i^{c},i^{d})$ induces a chain of leaf patterns $(P_{1},\dots,P_{N})\in\mathcal{P}^{N}$ (Def.~\ref{def:Chain}). Applying Theorems~\ref{thm:u-init},~\ref{thm:W-bulk}, and~\ref{thm:u-end} to the corresponding sites yields~\eqref{eq:chain-value}.
+\end{proof}
+\pagebreak
+\section{Bounding $Tr(MB)$}
+
+\textbf{Lemma} 
+A matrix with the structure $\mathbb{E}[S^{T}S\otimes S^{T}S]$ for some random matrix $S\in \R^{m\times n}$   is a PSD matrix.
+\textbf{Proof}
+Given some $x\in\R^{n}$ will calculate $x^TMx$ and prove its non-negative.
+\begin{align}
+    x^TMx&=\sum_{i^{(a)},i^{(c)}=1}^d\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(a)},i^{(c)}}M_{i^{(a)},i^{(b)},i^{(c)},i^{(d)}}x_{i^{(b)},i^{(d)}}\\
+    &=\sum_{i^{(a)},i^{(c)}=1}^d\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(a)},i^{(c)}}\mathbb{E}[\langle S_{i^{(a)}},S_{i^{(b)}}\rangle\cdot\langle S_{i^{(c)}},S_{i^{(d)}}\rangle]x_{i^{(b)},i^{(d)}}\\
+    &=\mathbb{E}[\sum_{i^{(a)},i^{(c)}=1}^d\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(a)},i^{(c)}}\langle S_{i^{(a)}},S_{i^{(b)}}\rangle\cdot\langle S_{i^{(c)}},S_{i^{(d)}}\rangle x_{i^{(b)},i^{(d)}}]\\
+    &=\mathbb{E}[\sum_{i^{(a)},i^{(c)}=1}^d\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(a)},i^{(c)}}\sum_{n^{(1)}=1}^m S_{i^{(a)}n^{(1)}}S_{i^{(b)}n^{(1)}}\cdot\sum_{n^{(2)}=1}^m S_{i^{(c)}n^{(2)}},S_{i^{(d)}} x_{i^{(b)},i^{(d)}}]\\
+&=\mathbb{E}[\sum_{n^{(1)}=1}^m\sum_{n^{(2)}=1}^m\sum_{i^{(a)},i^{(c)}=1}^d\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(a)},i^{(c)}} S_{i^{(a)}n^{(1)}},S_{i^{(b)}n^{(1)}} S_{i^{(c)}n^{(2)}}S_{i^{(d)}} x_{i^{(b)},i^{(d)}}]\\
+&=\mathbb{E}[\sum_{n^{(1)}=1}^m\sum_{n^{(2)}=1}^m(\sum_{i^{(a)},i^{(c)}=1}^dx_{i^{(a)},i^{(c)}} S_{i^{(a)}n^{(1)}}S_{i^{(c)}n^{(2)}})(\sum_{i^{(b)},i^{(d)}=1}^dS_{i^{(b)}n^{(1)}}\cdot S_{i^{(d)}} x_{i^{(b)},i^{(d)}})]\\
+&=\mathbb{E}[\sum_{n^{(1)}=1}^m\sum_{n^{(2)}=1}^mY_{n^1,n^2}^2]\\
+&\ge0
+\end{align}
+Where $Y=\sum_{i^{(a)},i^{(c)}=1}^dx_{i^{(a)},i^{(c)}} S_{i^{(a)}n^{(1)}}S_{i^{(c)}n^{(2)}}=\sum_{i^{(b)},i^{(d)}=1}^dx_{i^{(b)},i^{(d)}} S_{i^{(b)}n^{(1)}}S_{i^{(d)}n^{(2)}}$.
+\begin{corollary}\label{lem:M-psd}
+With this lemma, we get that $M$ is a PSD and we also know that $B=A\otimes A$ is a PSD, see eq(\ref{eq:M_def}).
+Meaning we can use the bounds:
+\begin{itemize}
+    \item $Tr(MB)\le Tr(M)Tr(B)$
+    \item $Tr(MB)\le \|M\|_\infty Tr(B)$ 
+\end{itemize}
+\end{corollary}
+
+\subsection{Bound Via $\mathrm{Tr}(M)$}
+\begin{theorem}[Closed form for $\mathrm{Tr}(M)$]
+Given $M$ like in eq.(\ref{eq:M_def}) with $N\ge 3$ and using the vectors and matrices from theorem (\ref{thm:per-entry-M}).
+Define
+\begin{align}
+\mathbf{u}^{\mathrm{Tr}}_{\mathrm{init}}
+&:=\;d^{2}\,u^{(4K,4K)}_{\mathrm{init}}
+\;+\;d^{2}(d-1)\bigl(u^{(4K,A)}_{\mathrm{init}}+u^{(A,4K)}_{\mathrm{init}}\bigr)
+\;+\;d^{2}(d-1)^{2}\,u^{(A,A)}_{\mathrm{init}},\\[2pt]
+\mathbf{u}^{\mathrm{Tr}}_{\mathrm{end}}
+&:=\;d\,u^{4K}_{\mathrm{end}}\;+\;d(d-1)\,u^{A}_{\mathrm{end}},\\[2pt]
+\mathbf{W}^{\mathrm{Tr}}
+&:=\;d\,W^{4K}\;+\;d(d-1)\,W^{A}.
+\end{align}
+Then
+\begin{align}
+\mathrm{Tr}(M)\;=\;\bigl\langle\,\mathbf{u}^{\mathrm{Tr}}_{\mathrm{end}},\;
+(\mathbf{W}^{\mathrm{Tr}})^{N-3}\,\mathbf{u}^{\mathrm{Tr}}_{\mathrm{init}}\,\bigr\rangle. \label{def:tr_formula}
+\end{align}
+
+
+For $N=3$, $(\mathbf{W}^{\mathrm{Tr}})^{0}=I$ and
+$\mathrm{Tr}(M)=\langle\mathbf{u}^{\mathrm{Tr}}_{\mathrm{end}},\mathbf{u}^{\mathrm{Tr}}_{\mathrm{init}}\rangle$.
+\end{theorem}
+\begin{proof}
+By definition,
+\begin{align}
+{Tr}(M)
+=\sum_{\boldsymbol{i}^{(a)},\boldsymbol{i}^{(c)}\in[d]^{N}}
+M_{\boldsymbol{i}^{(a)},\boldsymbol{i}^{(a)},\boldsymbol{i}^{(c)},\boldsymbol{i}^{(c)}}\label{def:tr_sum}
+\end{align}
+
+
+We note that because of the trace condition on the indices, $i^{(a)}=i^{(b)}\land i^{(c)}=i^{(d)}$, we get that the pattern chain for each element, eq (\ref{def:Chain}),  contains only patterns $\{4K,A\}$. i.e. each element is of the form $\mathcal{P}=(P_{1},\ldots,P_{N})\in\{4K,A\}^{N}$.\\
+We get from theorem (\ref{eq:per-entry-M}) that each element on the main diagonal is of the form
+\begin{align}
+M_{\boldsymbol{i}^{(a)},\boldsymbol{i}^{(a)},\boldsymbol{i}^{(c)},\boldsymbol{i}^{(c)}}=\langle u_{end}^{P_N},\prod_{j=3}^{N-1}W^{p_j}u_{start}^{(P_1,P_2)}\rangle
+\end{align}
+With this in mind we can change the sum from summing over the indices to summing over the pattern chains where we count how many times each pattern chain occurs.
+
+\paragraph{Count Per main diagonal pattern chain occurrences}
+For a fixed pattern sequence $\boldsymbol{P}\in\{4K,A\}^{N}$, count the index pairs $(\boldsymbol{i}^{(a)},\boldsymbol{i}^{(c)})\in[d]^{N}\times[d]^{N}$ that realise it.
+Each site $p=1,..,N$ is independent, if $P_p=4K$ then $i^{(a)}_p=i^{(c)}_p$, giving $d$ choices.
+If $P_p=A$ then $i^{(a)}_p\ne i^{(c)}_p$, giving $d(d-1)$ choices. 
+Regrouping \eqref{def:tr_sum} by pattern chain, with multiplicity $\prod_{p=1}^{N} c_{P_p}$ where $c_{4K}:=d,\ c_A:=d(d-1)$, and using linearity of $\langle\cdot,\cdot\rangle$ to absorb each site sum into its factor:
+\begin{align}
+\mathrm{Tr}(M)
+&= \sum_{\mathcal{P}\in\{4K,A\}^{N}}\!\Bigl(\prod_{p=1}^{N} c_{P_p}\Bigr)
+\bigl\langle u_{end}^{P_N},\, W^{P_{N-1}}\!\cdots W^{P_3}\, u_{start}^{(P_1,P_2)}\bigr\rangle \notag\\
+&= \Bigl\langle\, \sum_{P_N} c_{P_N} u_{end}^{P_N},\;
+\Bigl(\!\!\sum_{P_3,\ldots,P_{N-1}}\!\prod_{j=3}^{N-1}c_{P_j}\,W^{P_{N-1}}\!\cdots W^{P_3}\Bigr)
+\sum_{P_1,P_2} c_{P_1}c_{P_2}\, u_{start}^{(P_1,P_2)} \Bigr\rangle,
+\end{align}
+The first and last sums equal $\mathbf{u}_{end}^{\mathrm{Tr}}$ and $\mathbf{u}_{start}^{\mathrm{Tr}}$ by definition. For the middle, the non-commutative binomial expansion of a product of $N-3$ identical sums gives
+\begin{align}
+(\mathbf{W}^{\mathrm{Tr}})^{N-3}
+\;=\;\Bigl(\sum_{P\in\{4K,A\}}c_P W^P\Bigr)^{\!N-3}
+\;=\!\!\sum_{(P_3,\ldots,P_{N-1})\in\{4K,A\}^{N-3}}\!\!\prod_{j=3}^{N-1}c_{P_j}\;W^{P_{N-1}}\!\cdots W^{P_3},
+\end{align}
+Substituting into \eqref{eq:tr-pulled-in},
+\begin{align}
+\mathrm{Tr}(M)=\bigl\langle \mathbf{u}_{end}^{\mathrm{Tr}},\,(\mathbf{W}^{\mathrm{Tr}})^{N-3}\,\mathbf{u}_{start}^{\mathrm{Tr}}\bigr\rangle.
+\end{align}
+
+\end{proof}
+
+\subsection{Bound via $\|M\|_{\infty }$}
+
+Since $M \text{ and } B$ are both PSD's, see (\ref{lem:M-psd}), we can use the following bound
+\begin{equation}
+\mathrm{Tr}(MB)\le\;\|M\|_\infty \,\mathrm{Tr}(B),
+\end{equation}
+In order to find $\|M\|_\infty$  we do the following:
+1) Use Greshgorin's theorem to bound the eigenvalues with maximum row sum
+2) Proof that the maximum row sum is indeed an eigenvalue.
+With these $2$  step we get the largest eigenvalues and hence the operator norm for $M$ with the following theorem:
+
+\begin{theorem}[Closed form for $\|M\|_\infty$]\label{thm:opnorm-closed}
+Let $M$ be the matrix of eq.~\eqref{eq:M_def} with $N\ge 3, d,m\ge 2$,  whose entries are
+given by the per entry Theorem~\ref{thm:per-entry-M}, and let $\{W^{P},\,u^{(P_1,P_2)}_{\mathrm{init}},\,u^{P_N}_{\mathrm{end}}\}_{P\in\mathcal{P}}$ be the associated transfer matrices and boundary vectors. 
+Define 
+\begin{align}
+\mathbf{u}^{\mathrm{op}}_{\mathrm{init}}
+&:=\;u^{(4K,4K)}_{\mathrm{init}}
+\;+\;(d-1)\bigl(u^{(4K,U_1)}_{\mathrm{init}}+u^{(U_1,4K)}_{\mathrm{init}}\bigr)
+\;+\;(d-1)^{2}\,u^{(U_1,U_1)}_{\mathrm{init}},\\[2pt]
+\mathbf{u}^{\mathrm{op}}_{\mathrm{end}}
+&:=\;u^{4K}_{\mathrm{end}}\;+\;(d-1)\,u^{U_1}_{\mathrm{end}},\\[2pt]
+\mathbf{W}^{\mathrm{op}}
+&:=\;W^{4K}\;+\;(d-1)\,W^{U_1}.
+\end{align}
+Then for $M$
+\begin{equation}\label{eq:opnorm_formula}
+\;\|M\|_{\infty}
+=\;\bigl\langle\,\mathbf{u}^{\mathrm{op}}_{\mathrm{end}},\;
+(\mathbf{W}^{\mathrm{op}})^{N-3}\,\mathbf{u}^{\mathrm{op}}_{\mathrm{init}}\,\bigr\rangle .
+\end{equation}
+For $N=3$, $(\mathbf{W}^{\mathrm{op}})^{0}=I$ and
+$\|M\|_\infty=\langle\mathbf{u}^{\mathrm{op}}_{\mathrm{end}},\mathbf{u}^{\mathrm{op}}_{\mathrm{init}}\rangle$.
+\end{theorem}
+\subsubsection{Evaluate the per row Sum}
+\paragraph{Row classification by $E/D$.}
+\begin{definition}[$E/D$ pattern]\label{def:E_D_sites}
+Fix a row $(i^{(a)}, i^{(c)})\in\R^{d^N}\times\R^{d^N}$ of $M$. For each site $l\in[N]$, set
+\begin{equation}
+s_l \;:=\; \begin{cases} E, & i_l^{(a)} = i_l^{(c)},\\ D, & i_l^{(a)} \neq i_l^{(c)}. \end{cases}
+\end{equation}
+$E$  for Equal and $D$  for Different.
+The vector $\mathbf{s} = (s_1,\dots,s_N)\in\{E,D\}^N$ is the \emph{$E/D$-pattern} of the row.
+\end{definition}
+
+\begin{lemma}[Per-site compatibility]\label{lem:per_site_compa}
+Fix a row with $E/D$-pattern $\mathbf{s}$ and a column $(i^{(b)}, i^{(d)})$.
+The corresponding entry of $M$ is nonzero if and only if at every site $l$ the joint $(i_l^{(a)}, i_l^{(b)}, i_l^{(c)}, i_l^{(d)})$ has pattern $P_l\in\mathcal{P}$ where:
+\begin{itemize}
+\item if $s_l = E$, then $P_l \in \{4K, U_1\}$, with $1$ column choice for $P_l = 4K$ and $d-1$ choices for $P_l = U_1$;
+\item if $s_l = D$, then $P_l \in \{A, U_2\}$, each with $1$ column choice.
+\end{itemize}
+\end{lemma}
+\begin{proof}
+We know that for each element in $M$  if its pattern chain, see def (\ref{def:Chain}), doesn't consist of only pattern in $\mathcal{P}$ , see def (\ref{def:patterns}), the element is $0$.
+We look at some $E/D$-pattern for a row $(i^{(a)}.i^{(b)})$, we look at a site $l$  for each element and conclude what pattern that site must have.
+\smallskip\noindent\textbf{Case $s_l=E$ ($i_l^{(a)}=i_l^{(c)}$).}
+Because $i^{(a)}_l=i^{(c)}$  then $P_l\not\in\{A,U_2\}$ thus at an $E$-site only $P_l\in\{4K,U_1\}$ can give a nonzero moment. Counting the values $(i_l^{(b)},i_l^{(d)})$ consistent with each:
+\begin{itemize}
+\item $P_l=4K$ forces $i_l^{(b)}=i_l^{(d)}=i_l^{(a)}$, a single choice.
+\item $P_l=U_1$ forces $i_l^{(a)}=i_l^{(c)}$ and $i_l^{(b)}=i_l^{(d)}$ with $i_l^{(b)}\neq i_l^{(a)}$, i.e.\ $i_l^{(b)}=i_l^{(d)}$ giving $d-1$ choices.
+\end{itemize}
+
+\smallskip\noindent\textbf{Case $s_l=D$ ($i_l^{(a)}\neq i_l^{(c)}$).}
+Symmetric, exchanging the roles of the ``equal'' and ``different'' constraints. Now $4K$ and $U_1$ both contradict $i_l^{(a)}\neq i_l^{(c)}$ and contribute $0$, while $P_l\in\{A,U_2\}$ are admissible: $A$ forces $i_l^{(b)}=i_l^{(a)}$, $i_l^{(d)}=i_l^{(c)}$ and $U_2$ forces $i_l^{(d)}=i_l^{(a)}$, $i_l^{(b)}=i_l^{(c)}$, each pinning $(i_l^{(b)},i_l^{(d)})$ to a single value. Hence one column choice apiece.
+\end{proof}
+
+\begin{definition}
+    For an $E/D$-pattern $\mathbf{s}$, see (\ref{def:E_D_sites}), define
+\begin{equation}\label{eq:Rdef}
+R(\mathbf{s}) \;:=\; \sum_{j} M_{ij}
+\end{equation}
+denote the sum of any row $i$ of $M$ whose pattern is $\mathbf{s}$.
+The following theorem will show that $R(s)$  is well defined.
+\end{definition}
+
+\begin{definition}[Aggregated operators]\label{def:row_sum_operators}
+Define
+\begin{equation}
+W^{E} := W^{4K} + (d-1)\,W^{U_1},
+\qquad
+W^{D} := W^{A} + W^{U_2},
+\end{equation}
+\begin{equation}
+u_\mathrm{end}^{E} := u_\mathrm{end}^{4K} + (d-1)\,u_\mathrm{end}^{U_1},
+\qquad
+u_\mathrm{end}^{D} := u_\mathrm{end}^{A} + u_\mathrm{end}^{U_2},
+\end{equation}
+\begin{align}
+u_\mathrm{init}^{(E,E)}
+&:= u_\mathrm{init}^{(4K,4K)}
+   + (d-1)\bigl(u_\mathrm{init}^{(4K,U_1)} + u_\mathrm{init}^{(U_1,4K)}\bigr)
+   + (d-1)^2\,u_\mathrm{init}^{(U_1,U_1)},\\[2pt]
+u_\mathrm{init}^{(E,D)}
+&:= u_\mathrm{init}^{(4K,A)} + u_\mathrm{init}^{(4K,U_2)}
+   + (d-1)\bigl(u_\mathrm{init}^{(U_1,A)} + u_\mathrm{init}^{(U_1,U_2)}\bigr),\\[2pt]
+u_\mathrm{init}^{(D,E)}
+&:= u_\mathrm{init}^{(A,4K)} + u_\mathrm{init}^{(U_2,4K)}
+   + (d-1)\bigl(u_\mathrm{init}^{(A,U_1)} + u_\mathrm{init}^{(U_2,U_1)}\bigr),\\[2pt]
+u_\mathrm{init}^{(D,D)}
+&:= u_\mathrm{init}^{(A,A)} + u_\mathrm{init}^{(A,U_2)}
+   + u_\mathrm{init}^{(U_2,A)} + u_\mathrm{init}^{(U_2,U_2)}.
+\end{align}
+
+\end{definition}
+
+
+\begin{theorem}[Row-sum decomposition]\label{thm:row-decomp}
+Fix an $E/D$-pattern $\mathbf{s}\in\{E,D\}^N$, def (\ref{def:E_D_sites}), and call a chain $\mathbf{P}\in\mathcal{P}^N$ \emph{compatible} with $\mathbf{s}$ if every $P_l$ is admissible at site $l$ in the sense of Lemma~\ref{lem:per_site_compa}. Write
+\[
+\mathcal{C}(\mathbf{s}) \;:=\; \{\mathbf{P}\in\mathcal{P}^N : \mathbf{P}\text{ compatible with }\mathbf{s}\},
+\qquad
+n_{\mathbf{P}} \;:=\; (d-1)^{\,\#\{l\,:\,P_l = U_1\}},
+\]
+for the set of \emph{compatible chains} and the \emph{chain multiplicity}. Then $R(\mathbf{s})$ in \eqref{eq:Rdef} is independent of the chosen row and
+\begin{equation}\label{eq:row-decomp}
+R(\mathbf{s}) \;=\; \sum_{\mathbf{P} \in \mathcal{C}(\mathbf{s})} n_{\mathbf{P}}\, V(\mathbf{P}).
+\end{equation}
+With the aggregated transfer matrices and boundary vectors of Definition~(\ref{def:row_sum_operators})
+\begin{equation}\label{eq:row-transfer}
+R(\mathbf{s}) \;=\; \bigl\langle u_\mathrm{end}^{(s_N)},\; W^{(s_{N-1})}\cdots W^{(s_3)}\, u_\mathrm{init}^{(s_1,s_2)}\bigr\rangle.
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Fix a row $i=(i^{(a)},i^{(c)})$ with pattern $\mathbf{s}$ and sum over columns $j=(i^{(b)},i^{(d)})$. Each index $(i^{(a)},i^{(b)},i^{(c)},i^{(d)})$ induces a chain $\mathbf{P}\in\mathcal{P}^N$ (Def.~\ref{def:Chain}), and by Theorem~\ref{thm:per-entry-M} the entry depends only on this chain, $V(\mathbf{P})$, with $V$ given by \eqref{eq:chain-value}; in particular it is independent of the underlying index values.
+
+By Lemma~\ref{lem:per_site_compa}, $V(\mathbf{P})\neq 0$ iff $\mathbf{P}\in\mathcal{C}(\mathbf{s})$, and for each site we have $(d-1)$  options if $\mathbf{P}_l$  os of type $U_1$  and $1$  option otherwise. For a fixed admissible chain $\mathbf{P}$ the column entries are independent across each site, so the number of possible columns realizing $\mathbf{P}$ is
+\[
+\prod_{l=1}^N \#\{(i_l^{(b)},i_l^{(d)}) : \text{pattern }P_l=U_1\}
+\;=\; (d-1)^{\#\{l:P_l=U_1\}} \;=\; n_{\mathbf{P}},
+\]
+since each $U_1$-site admits $d-1$ choices and every other admissible pattern admits exactly one. Changing summation from columns to all possible $\mathbf{P}$  gives.
+\[
+R(\mathbf{s})=\sum_j M_{ij}=\sum_{\mathbf{P}\in\mathcal{C}(\mathbf{s})} n_{\mathbf{P}}\,V(\mathbf{P}),
+\]
+which proves \eqref{eq:row-decomp}; the right-hand side depends only on $\mathbf{s}$, establishing row-independence.
+Denote for convinience
+\[
+w_{P_l}(s_l)=
+\begin{cases}
+d-1, & (s_l,P_l)=(E,U_1),\\
+1, & \text{otherwise},
+\end{cases}
+\qquad\Longrightarrow\qquad
+n_{\mathbf{P}}=\prod_{l=1}^{N} w_{P_l}(s_l).
+\]
+Inserting this and the factorization \eqref{eq:chain-value} of $V(\mathbf{P})$ from Theorem~\ref{thm:per-entry-M} into \eqref{eq:row-decomp},
+\[
+R(\mathbf{s})
+=\!\!\sum_{P_1\in\mathcal{P}(s_1)}\!\!\cdots\!\!\sum_{P_N\in\mathcal{P}(s_N)}\!\!\Bigl(\textstyle\prod_{l=1}^{N}w_{P_l}(s_l)\Bigr)\,\bigl(u_\mathrm{end}^{P_N}\bigr)^{\!\top} W^{P_{N-1}}\!\cdots W^{P_3}\,u_\mathrm{init}^{(P_1,P_2)}.
+\]
+Each $P_l$ occurs in exactly one factor, so the sum factorizes site by site:
+\[
+R(\mathbf{s})
+=\Bigl(\!\sum_{P_N}\! w_{P_N}(s_N)\,u_\mathrm{end}^{P_N}\Bigr)^{\!\top}
+\Bigl(\!\prod_{l=3}^{N-1}\sum_{P_l}\! w_{P_l}(s_l)\,W^{P_l}\Bigr)
+\Bigl(\!\sum_{P_1,P_2}\! w_{P_1}(s_1)w_{P_2}(s_2)\,u_\mathrm{init}^{(P_1,P_2)}\Bigr).
+\]
+Plugging in definition~\ref{def:row_sum_operators} the three brackets are $u_\mathrm{end}^{(s_N)}$, $\prod_{l=3}^{N-1}W^{(s_l)}$, and $u_\mathrm{init}^{(s_1,s_2)}$, giving \eqref{eq:row-transfer}.
+\end{proof}
+
+\begin{corollary}\label{cor:EN-rowsum}
+For each row of $M$ with indices $(i,i)$, for some $i\in d^N$ its sum equals $R(E^N)$.
+\end{corollary}
+
+\subsubsection{Find the maximal row sum}
+Having established the per-row formula \eqref{eq:row-transfer} for $R(\mathbf{s})$, we identify the pattern $\mathbf{s}$ maximizing it.
+
+\begin{lemma}[Entrywise dominance $W^E \succeq W^D$]\label{lem:transition_matrix_dominance}
+For $\sigma_4 \geq \sigma_2^2$ and $d\geq 2$,
+\begin{equation}
+(W^E - W^D)[Z_\mathrm{out},Z_\mathrm{in}] \;\geq\; 0 \qquad \forall\,Z_\mathrm{out},Z_\mathrm{in}\in\mathcal{P},
+\end{equation}
+equivalently $W^E v \geq W^D v$ entrywise for all $v\in\R^4_{\geq 0}$.
+\end{lemma}
+\begin{proof}
+By Definition~\ref{def:row_sum_operators},
+\[
+W^E - W^D = W^{4K} + (d-1)\,W^{U_1} - W^{A} - W^{U_2}.
+\]
+By \eqref{eq:W-bulk}, we have \begin{equation}\label{eq:W-bulk}
+W^{P}_{Z_{\mathrm{out}}, Z_{\mathrm{in}}}
+\;=\;
+N_{Z_{\mathrm{out}}}(m)
+\!\!\sum_{K \,\in\, \mathcal{K}(P)}\!\! \mu^{X}_{P, K}
+\!\!\!\!\sum_{\substack{K_{1}, K_{2} \in \mathcal{P} \\ K_{1} \wedge K_{2} \,=\, K}}\!\!\!\!
+N_{K_{1}}(m_{1})\, N_{K_{2}}(m_{2})\,
+\mu^{g}_{\,Z_{\mathrm{in}} \wedge K_{1},\, K_{2} \wedge Z_{\mathrm{out}}}.
+\end{equation}
+the only $P$-dependent factor of $W^{P}_{Z_\mathrm{out},Z_\mathrm{in}}$ is $\mu^X_{P,K}$. 
+Since $\mu^X_{P,K}=0$ for $K\notin\mathcal{K}(P)$, we can sum over all $\mathcal{P}$ getting:
+\[
+(W^E - W^D)[Z_\mathrm{out},Z_\mathrm{in}]
+= N_{Z_\mathrm{out}}(m)\!\!\sum_{K\in\mathcal{P}}\Delta^X(K)\!\!\!\sum_{\substack{K_1,K_2\in\mathcal{P}\\K_1\wedge K_2=K}}\!\!\!N_{K_1}(m_1)N_{K_2}(m_2)\,\mu^g_{Z_\mathrm{in}\wedge K_1,\,K_2\wedge Z_\mathrm{out}},
+\]
+with
+\[
+\Delta^X(K):=\mu^X_{4K,K}+(d-1)\mu^X_{U_1,K}-\mu^X_{A,K}-\mu^X_{U_2,K}.
+\]
+We get the following
+\begin{equation}\label{eq:T-diff}
+(W^E - W^D)[Z_\mathrm{out},Z_\mathrm{in}]
+= N_{Z_\mathrm{out}}(m)\!\!\sum_{K_1,K_2\in\mathcal{P}}\!\! N_{K_1}(m_1)N_{K_2}(m_2)\,\Delta^X(K_1\wedge K_2)\,\mu^g_{Z_\mathrm{in}\wedge K_1,\,K_2\wedge Z_\mathrm{out}}.
+\end{equation}
+Plugging in the moments of Lemma~\ref{lem:X-leaf-full},
+\[
+\Delta^X(K)=
+\begin{cases}
+\sigma_4 + (d-3)\sigma_2^2  & K=4K,\\[2pt]
+d\,\sigma_2^2, & K=U_1,\\[2pt]
+0, & K\in\{A,U_2\}.
+\end{cases}
+\]
+By the assumptions of the lemma we get that $\Delta^X(K)\ge0$ for every $K\in \mathcal{P}$.
+\end{proof}
+
+\paragraph{Boundary lemmas.}
+\begin{lemma}[End-vector dominance]\label{lem:end_lemma_dominance_max_row}
+$u_\mathrm{end}^{E} - u_\mathrm{end}^{D} \geq 0$ entrywise.
+\end{lemma}
+\begin{proof}
+Similar to the previous lemma. By \eqref{eq:u-end} the only $P_N$-dependent factor of $[u^{P_N}_\mathrm{end}]_{Z_\mathrm{in}}$ is $\mu^X_{P_N,\cdot}$. By Definition~\ref{def:row_sum_operators},
+\[
+u_\mathrm{end}^E-u_\mathrm{end}^D=u^{4K}_\mathrm{end}+(d-1)u^{U_1}_\mathrm{end}-u^A_\mathrm{end}-u^{U_2}_\mathrm{end},
+\]
+so combining the four copies of \eqref{eq:u-end},
+\begin{equation}\label{eq:uend-diff}
+[u_\mathrm{end}^E - u_\mathrm{end}^D]_{Z_\mathrm{in}}
+= \!\!\sum_{\mathcal N\in\{A,4K\}}\!\! N_{\mathcal N}(m)\!\!\sum_{K_1,K_2\in\mathcal{P}}\!\! N_{K_1}(m_1)N_{K_2}(m_2)\,\Delta^X(K_1\wedge K_2)\,\mu^g_{Z_\mathrm{in}\wedge K_1,\,K_2\wedge\mathcal N}
+\end{equation}
+with $$\Delta^X(J):=\mu^X_{4K,J}+(d-1)\mu^X_{U_1,J}-\mu^X_{A,J}-\mu^X_{U_2,J}$$
+
+Every factor is non-negative, and $\Delta^X(J)\geq 0$ as in the previous lemma, so $[u_\mathrm{end}^E - u_\mathrm{end}^D]_{Z_\mathrm{in}}\geq 0$.
+
+
+
+\end{proof}
+
+\begin{lemma}[Boundary dominance]\label{lem:uinit_max_row}
+For $\sigma_4\ge\sigma_2^2$ and $d\ge2$,
+\[
+u_\mathrm{init}^{(E,E)} \;\ge\; u_\mathrm{init}^{(s_1,s_2)} \qquad\text{entrywise, for every }(s_1,s_2)\in\{E,D\}^2 .
+\]
+\end{lemma}
+\begin{proof}
+Fix $Z_\mathrm{out}\in\mathcal P$.
+Denote $$G(K,J)\;:=\;N_K(m)\!\!\sum_{\substack{K_1,K_2\in\mathcal P\\ K_1\wedge K_2=J}}\!\!
+N_{K_1}(m_1)\,N_{K_2}(m_2)\,\mu^g_{\,K\wedge K_1,\;K_2\wedge Z_\mathrm{out}}.$$
+Substitute \eqref{eq:u-init} into definition~\ref{def:row_sum_operators} (both sums over all of $\mathcal P$, since
+$\mu^X_{P,\cdot}=0$ off $\mathcal K(P)$) and subtract:
+\begin{align}
+[u_\mathrm{init}^{(E,E)}-u_\mathrm{init}^{(E,D)}]_{Z_\mathrm{out}}
+&= N_{Z_\mathrm{out}}(m)\!\sum_{K,J\in\mathcal P}\! G(K,J)\,
+\bigl(\mu^X_{4K,K}+(d-1)\mu^X_{U_1,K}\bigr)\nonumber\\
+&\quad
+\bigl[\bigl(\mu^X_{4K,J}+(d-1)\mu^X_{U_1,J}\bigr)-\bigl(\mu^X_{A,J}+\mu^X_{U_2,J}\bigr)\bigr],
+\label{eq:dED}\\[4pt]
+[u_\mathrm{init}^{(E,E)}-u_\mathrm{init}^{(D,E)}]_{Z_\mathrm{out}}
+&= N_{Z_\mathrm{out}}(m)\!\sum_{K,J\in\mathcal P}\! G(K,J)\,
+\bigl[\bigl(\mu^X_{4K,K}+(d-1)\mu^X_{U_1,K}\bigr)-\bigl(\mu^X_{A,K}+\mu^X_{U_2,K}\bigr)\bigr]\nonumber\\
+&\quad
+\bigl(\mu^X_{4K,J}+(d-1)\mu^X_{U_1,J}\bigr),
+\label{eq:dDE}\\[4pt]
+[u_\mathrm{init}^{(E,E)}-u_\mathrm{init}^{(D,D)}]_{Z_\mathrm{out}}
+&= N_{Z_\mathrm{out}}(m)\!\sum_{K,J\in\mathcal P}\! G(K,J)\,
+\Bigl[\bigl(\mu^X_{4K,K}+(d-1)\mu^X_{U_1,K}\bigr)\nonumber\\
+&\quad
+\bigl[\bigl(\mu^X_{4K,J}+(d-1)\mu^X_{U_1,J}\bigr)-\bigl(\mu^X_{A,J}+\mu^X_{U_2,J}\bigr)\bigr]\nonumber\\
+&\quad
++\bigl[\bigl(\mu^X_{4K,K}+(d-1)\mu^X_{U_1,K}\bigr)-\bigl(\mu^X_{A,K}+\mu^X_{U_2,K}\bigr)\bigr]\nonumber\\
+&\quad
+\bigl(\mu^X_{A,J}+\mu^X_{U_2,J}\bigr)\Bigr].
+\label{eq:dDD}
+\end{align}
+
+The factors $N_{Z_\mathrm{out}}(m),N_K(m),N_{K_1}(m_1),N_{K_2}(m_2)\ge0$, the gadget
+moments $\mu^g_{\cdot,\cdot}\ge0$ (Lemma~\ref{lem:mu-g}), and the un-subtracted leaf
+weights $\mu^X_{4K,\cdot}+(d-1)\mu^X_{U_1,\cdot}\ge0$ and
+$\mu^X_{A,\cdot}+\mu^X_{U_2,\cdot}\ge0$. It remains to show the subtracted factor is
+nonnegative, for every $B\in\mathcal P$:
+
+By Lemma~\ref{lem:X-leaf-full}, with $\sigma_4+(d-3)\sigma_2^2\ge(d-2)\sigma_2^2\ge0$
+for $\sigma_4\ge\sigma_2^2$, $d\ge2$.
+\[
+\bigl(\mu^X_{4K,B}+(d-1)\mu^X_{U_1,B}\bigr)-\bigl(\mu^X_{A,B}+\mu^X_{U_2,B}\bigr)
+=
+\begin{cases}
+\sigma_4+(d-3)\sigma_2^2 & B=4K,\\
+d\,\sigma_2^2            & B=U_1,\\
+0                       & B\in\{A,U_2\},
+\end{cases}
+\qquad\ge\ 0,
+\]
+ Hence every summand of
+\eqref{eq:dED}--\eqref{eq:dDD} is $\ge0$, so all three differences are $\ge0$. As
+$Z_\mathrm{out}$ was arbitrary, $u_\mathrm{init}^{(E,E)}\ge u_\mathrm{init}^{(s_1,s_2)}$
+entrywise for every $(s_1,s_2)\in\{E,D\}^2$.
+\end{proof}
+
+\begin{lemma}[Single-flip monotonicity]\label{lem:flip}
+Let $N\ge3$, $\sigma_4\ge\sigma_2^2$, $d\ge2$ and let $\mathbf{s}\in\{E,D\}^N$.
+From Theorem~\ref{thm:row-decomp},
+\[
+R(\mathbf{s})=\bigl\langle u_{end}^{(s_N)},\,W^{(s_{N-1})}\cdots W^{(s_3)}\,u_{init}^{(s_1,s_2)}\bigr\rangle
+\]
+is a product of $N-1$ elements: the boundary vector $u_{init}^{(s_1,s_2)}$, the $N-3$ transition matrices $W^{(s_3)},\dots,W^{(s_{N-1})}$, and the boundary vector $u_{end}^{(s_N)}$. If any one of these elements is of type $D$, replacing that element by its type-$E$ counterpart (and leaving all others unchanged) yields a sequence
+$\mathbf{s}'$ with
+\[
+R(\mathbf{s}')\ \ge\ R(\mathbf{s}).
+\]
+\end{lemma}
+
+\begin{lemma}[Single-flip monotonicity]\label{lem:flip}
+Let $N\ge3$, $\sigma_4\ge\sigma_2^2$, $d\ge2$ and let $\mathbf{s}\in\{E,D\}^N$.
+From theorem \ref{thm:row-decomp} we get a product of $N-1$  elements of the form $$R(\mathbf{s})=\langle u_{end}^{(\mathbf{s}^N)},W^{(\mathbf{s}^{N-1})}\cdots W^{(3)}u_{init}^{(\mathbf{s}_1,\mathbf{s}_2)}\rangle$$
+For each element 
+Let $N\ge3$, $\sigma_4\ge\sigma_2^2$, $d\ge2$ and let $\mathbf{s}\in\{E,D\}^N$.
+From Theorem~\ref{thm:row-decomp} we get a product of $N-1$ elements of the form
+\[
+R(\mathbf{s})=\bigl\langle u_{end}^{(\mathbf{s}_N)},\,W^{(\mathbf{s}_{N-1})}\cdots W^{(\mathbf{s}_3)}\,u_{init}^{(\mathbf{s}_1,\mathbf{s}_2)}\bigr\rangle .
+\]
+If  $\mathbf{s}$ has an element of type $D$ let $\mathbf{s}'$ be the sequence obtained by replacing that element $D$ with the corresponding $E$, keeping all other elements fixed, we get $$R(\mathbf{s}^\prime)\ge R(\mathbf{s})$$
+\end{lemma}
+\begin{proof}
+
+By \eqref{eq:row-transfer},
+\[
+R(\mathbf{s})=\bigl\langle u_\mathrm{end}^{(s_N)},\ W^{(s_{N-1})}\cdots W^{(s_3)}\,u_\mathrm{init}^{(s_1,s_2)}\bigr\rangle .
+\]
+
+Element in place $l=1,...,N$  in the sequence $s$  can be of type $D$  in 3 different places:
+\smallskip\noindent\textbf{(i) Boundary $u_\mathrm{init}$ - $l\in\{1,2\}$.}
+By Lemma~\ref{lem:uinit_max_row}, $u_\mathrm{init}^{(E,E)}\ge u_\mathrm{init}^{(s_1,s_2)}\ge0$. And we know that $ u_\mathrm{end}^{(s_N)},\ W^{(s_{N-1})}\cdots W^{(s_3)}$ all contain non negative element and hence by taking a sequence $\mathbf{s^\prime}=s^N\cdots s^3EE$, i.e. taking the element $u_{init}$  to be of type $u_{init}^{(E,E)}$  we get that
+\[
+R(\mathbf{s})\ \le\ R(\mathbf{s}^\prime).
+\]
+
+\smallskip\noindent\textbf{(ii) Interior $W$ - $l\in\{3,\dots,N-1\}$.}
+By Lemma \ref{lem:transition_matrix_dominance}, $W^{E}\ge W^{(s_l)}\ge0$ entrywise. And we know that $u_\mathrm{end}^{(s_N)},\ W^{(s_{N-1})}\cdots W^{(s_{l+1})}$ and
+$W^{(s_{l-1})}\cdots W^{(s_3)}\,u_\mathrm{init}^{(s_1,s_2)}$ all contain non negative elements, and hence by taking the sequence $\mathbf{s}^\prime$ that replaces the element
+$W^{(s_l)}$ by one of type $W^{E}$ we get that
+\[
+R(\mathbf{s})\ \le\ R(\mathbf{s}^\prime).
+\]
+
+\smallskip\noindent\textbf{(iii) Boundary $u_\mathrm{end}$ - $l=N$.}
+By Lemma~\ref{lem:end_lemma_dominance_max_row}, $u_\mathrm{end}^{E}\ge u_\mathrm{end}^{(s_N)}\ge0$.
+And we know that $W^{(s_{N-1})}\cdots W^{(s_3)}\,u_\mathrm{init}^{(s_1,s_2)}$ all contain non negative elements, and hence by taking the sequence $\mathbf{s}^\prime$ that replaces the element $u_\mathrm{end}^{(s_N)}$ by one of type $u_\mathrm{end}^{E}$ we get that
+\[
+R(\mathbf{s})\ \le\ R(\mathbf{s}^\prime).
+\]
+We got that in all $3$  possible cases it is best to use an element of type $E$ .
+\end{proof}
+\begin{corollary}
+\label{cor:max_row_sum}
+A row with with E/D pattern $\mathbf{s}$ , see \ref{def:E_D_sites},  with $\mathbf{s}=E^N$ obtains the maximal row sum $R(E^N)$.
+\end{corollary}
+\begin{proof}
+Assume by contradiction that this isn't true, so a sequence $\mathbf{s}^\prime$  with an element $D$  obtains the maximal sum and $$R(\mathbf{s}^\prime)>R(E^N)$$
+But with the previous lemma we can inductively get that $R(\mathbf{s}^\prime)\le R(E^N)$ in contradiction to the assumption.
+\end{proof}
+
+\paragraph{Closed form of $R(E^N)$.}
+By the previous corollary the maximum row sum equals $R(E^N)$, which we now express in closed form.
+\begin{theorem}[Closed form of the maximal row sum]\label{thm:R-EN-closed}
+Let $N\ge3$, $\sigma_4\ge\sigma_2^2$, $d\ge2$. Define the aggregated transfer matrix and
+boundary vectors
+\[
+\mathbf{W}^{\mathrm{Max}} \;:=\; W^{4K} + (d-1)\,W^{U_1},
+\qquad
+\mathbf{u}^{\mathrm{Max}}_{\mathrm{end}} \;:=\; u_\mathrm{end}^{4K} + (d-1)\,u_\mathrm{end}^{U_1},
+\]
+\[
+\mathbf{u}^{\mathrm{Max}}_{\mathrm{init}} \;:=\; u_\mathrm{init}^{(4K,4K)} + (d-1)\,u_\mathrm{init}^{(4K,U_1)}
++ (d-1)\,u_\mathrm{init}^{(U_1,4K)} + (d-1)^{2}\,u_\mathrm{init}^{(U_1,U_1)},
+\]
+where $W^{P},u_\mathrm{end}^{P},u_\mathrm{init}^{(P_1,P_2)}$ are given by
+Theorems~\ref{thm:W-bulk},~\ref{thm:u-end},~\ref{thm:u-init}. Then the maximal row sum
+admits the closed form
+\[
+R(E^N) \;=\; \bigl\langle \mathbf{u}^{\mathrm{Max}}_{\mathrm{end}},\; (\mathbf{W}^{\mathrm{Max}})^{\,N-3}\, \mathbf{u}^{\mathrm{Max}}_{\mathrm{init}}\bigr\rangle .
+\]
+\end{theorem}
+\begin{proof}
+From theorem \ref{thm:row-decomp}  and eq (\eqref{eq:row-decomp}) and using $V(\mathbf{P})$ from \eqref{eq:chain-value} 
+\begin{align}
+R(E^N)
+&= \!\!\!\!\!\sum_{\mathbf{P}\in\{4K,U_1\}^N}\!\!\!\!\!(d-1)^{\#\{l:P_l=U_1\}}\, V(\mathbf{P}) \notag \\
+&= \!\!\!\!\!\sum_{\mathbf{P}\in\{4K,U_1\}^N}\!\!\!\!\!(d-1)^{\#\{l:P_l=U_1\}}\, \bigl\langle u_\mathrm{end}^{P_N},\; W^{P_{N-1}}\!\cdots W^{P_3}\, u_\mathrm{init}^{(P_1,P_2)}\bigr\rangle. 
+\end{align}
+The multiplicity factor $(d-1)^{\#\{l:P_l=U_1\}} = \prod_l (d-1)^{[P_l=U_1]}$ splits across sites, and the inner product is multilinear in its $N$ arguments, so we may push each per-site sum inside:
+\begin{equation}
+R(E^N)
+\;=\; \biggl\langle \!\!\sum_{P_N\in\{4K,U_1\}}\!\!\!(d-1)^{[P_N=U_1]} u_\mathrm{end}^{P_N}, \prod_{l=3}^{N-1}\biggl(\sum_{P_l\in\{4K,U_1\}}\!\!\!(d-1)^{[P_l=U_1]} W^{P_l}\biggr) \!\!\!\!\!\sum_{P_1, P_2\in\{4K,U_1\}}\!\!\!\!\!(d-1)^{[P_1=U_1]+[P_2=U_1]} u_\mathrm{init}^{(P_1,P_2)} \biggr\rangle.
+\end{equation}
+Defining the aggregated transfer matrix and boundary vectors
+\begin{equation}
+\mathbf{W}^{\mathrm{Max}} \;:=\; W^{4K} + (d-1)\,W^{U_1},
+\qquad
+\mathbf{u}^{\mathrm{Max}}_{\mathrm{end}} \;:=\; u_\mathrm{end}^{4K} + (d-1)\,u_\mathrm{end}^{U_1},
+\end{equation}
+\begin{equation}
+\mathbf{u}^{\mathrm{Max}}_{\mathrm{init}} \;:=\; u_\mathrm{init}^{(4K,4K)} + (d-1)\,u_\mathrm{init}^{(4K,U_1)} + (d-1)\,u_\mathrm{init}^{(U_1,4K)} + (d-1)^{2}\,u_\mathrm{init}^{(U_1,U_1)},
+\end{equation}
+Plug that in the previous equation and get the required results
+\begin{equation}
+\;R(E^N) \;=\; \bigl\langle \mathbf{u}^{\mathrm{Max}}_{\mathrm{end}},\; (\mathbf{W}^{\mathrm{Max}})^{\,N-3}\, \mathbf{u}^{\mathrm{Max}}_{\mathrm{init}}\bigr\rangle.\;
+\end{equation}
+
+\end{proof}
+
+\subsubsection{$R(E^N)$  is an eigenvalue}
+\begin{lemma}\label{lem:E_N_EIGENVALUE}
+Let $v\in\mathbb{R}^{d^{2N}}$ be the indicator of the column diagonal,
+\[
+v_{(i^{(b)},i^{(d)})} \;=\; \mathbb{1}\!\left[i^{(b)}=i^{(d)}\right]
+.
+\]
+Then $v$ is an eigenvector of $M$ with eigenvalue $R(E^{N})$:
+\[
+M v \;=\; R(E^{N})\,v
+
+\]
+\end{lemma}
+
+\begin{proof}
+For any row $(i^{(a)},i^{(c)})$, using $v_{(i^{(b)},i^{(d)})}=\mathbb{1}[i^{(b)}=i^{(d)}]$
+\begin{equation}\label{eq:Mv-is-Gsq}
+(Mv)_{(i^{(a)},i^{(c)})}
+=\sum_{i^{(b)}}M_{(i^{(a)},i^{(c)}),(i^{(b)},i^{(b)})}
+\end{equation}
+We sum over each row $(i^{(a)},i^{(c)})$, which leads to $2$ options:
+
+ \begin{enumerate}
+     \item $i^{(a)}\neq i^{(c)}$ - Because $i^{(a)}\not=i^{(c)}$  we get that when looking at Row classification by $E/D$ (\ref{def:E_D_sites}) we have some site $l=1,...,N$  with classification $D$. From lemma (\ref{lem:per_site_compa}) we know that each of these element are non zero only in columns where the pattern chain received has $P_l\in\{A,U_2\}$. But we sum only over columns where $i^{(b)}=i^{(d)}$  meaning $P_l\in\{4K,U_1\}$. So for this option the sum vanishes.
+\item $i^{(a)}=i^{(c)}$ - From corollary (\ref{cor:EN-rowsum}) we get that the sum of the row equals $R(E^N)$
+\end{enumerate}
+
+Combining the two cases,
+\[
+(Mv)_{(i^{(a)},i^{(c)})}
+\;=\;
+\begin{cases}
+R(E^N), & i^{(a)}=i^{(c)},\\[2pt]
+0,      & i^{(a)}\neq i^{(c)},
+\end{cases}
+\;=\;
+R(E^N)\,\mathbb{1}\!\left[i^{(a)}=i^{(c)}\right]
+\;=\;
+R(E^N)\,v_{(i^{(a)},i^{(c)})}.
+\]
+Hence $Mv = R(E^N)\,v$.
+\end{proof}
+We will now prove theorem \ref{thm:opnorm-closed}
+\begin{proof}
+Since $M$ is symmetric with nonnegative entries, Gershgorin's theorem (applied
+rowwise) bounds every eigenvalue, $\lambda$, of $M$ by the maximal row sum,
+$$\lambda \le \max_{\mathbf{s}\in\{E,D\}^N} R(\mathbf{s})$$
+By corollary~\ref{cor:max_row_sum} this maximum equals $R(E^N)$.
+Hence
+$$\|M\|_\infty = \lambda_{max} \le R(E^N)$$
+By Lemma~\ref{lem:E_N_EIGENVALUE}, $R(E^N)$ is itself an eigenvalue of $M$, so the bound
+is attained and $\|M\|_\infty = R(E^N)$.
+The closed form \eqref{eq:opnorm_formula} now follows from theorem~\ref{thm:R-EN-closed}.
+\end{proof}
+
+
+\end{document} 
+
+
+\end{document}

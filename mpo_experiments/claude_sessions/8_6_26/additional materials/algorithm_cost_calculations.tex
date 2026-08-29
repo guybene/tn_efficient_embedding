@@ -1,0 +1,125 @@
+% --------------------------------------------------------------
+% This is all preamble stuff that you don't have to worry about.
+% Head down to where it says "Start here"
+% --------------------------------------------------------------
+ 
+\documentclass[12pt]{article}
+ 
+\usepackage{graphicx}
+ 
+\usepackage[margin=1in]{geometry} 
+\usepackage{amsmath,amsthm,amssymb}
+
+\usepackage{amsmath}
+\usepackage[ruled,vlined]{algorithm2e}
+ 
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+ 
+\newenvironment{theorem}[2][Theorem]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{lemma}[2][Lemma]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{exercise}[2][Exercise]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{problem}[2][Problem]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{question}[2][Question]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+\newenvironment{corollary}[2][Corollary]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
+
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+ 
+\begin{document}
+ 
+% --------------------------------------------------------------
+%                         Start here
+% --------------------------------------------------------------
+ 
+\title{Algorithms Cost}
+
+\maketitle
+Given an MPO $A$ with $N$ nodes the cost of a trace of $A^k$  with $k>1$ consists of the following:
+
+\textbf{Naive MPOP Algorithm}
+\begin{enumerate}
+    \item (Contract rows) We start by contracting the $k$  lines where each iteration $i$  has bond dimension $D^i$ so each iteration costs $(d\cdot D^i \cdot D^i) \cdot d \cdot (D \cdot D \cdot d)= d^3 \cdot D^{2(i+1)}$. So in order to contract to a single row we get for each column: $$\sum_{i=1}^{K-1} d^3\cdot D^{2i+2}=d^3\cdot D^2\cdot \frac{D^2(1-D^{2(K-1)})}{1-D^2}\simeq d^3 D^2\cdot D^{2K-2}\simeq d^3\cdot D^{2K}$$All in all, we get that for our $N$ nodes so $$O(d^3\cdot N\cdot D^{2K})$$
+    \item (Contract trace for each tensor) Now we are left with an MPO with bond dimension $D^k$  and physical dimension $d$ . In order to calcalute each node's trace we fix 2 indices in the bond dimensions, i.e. $D^{2k}$  options, and sum $d$  values.
+    So a cost of $$O(D^{2K}\cdot d\cdot N)$$
+    \item Finally we multiply $N$  \textbf{vector to matrix} shaped $D^K\times D^K$ at a cost of $$O(N\cdot D^{2K})$$ SUMMARY, the cost of $$O(d^3\cdot N\cdot D^{2K})$$ 
+\end{enumerate} 
+
+\subsection{Plain Hutch}
+We contract the entire tensor, reshape it to a matrix and multiply with a vector.
+\begin{enumerate}
+    \item (contract rows) Just like in the naive case, we create the original tensor at the cost of $$O(d^3\cdot N\cdot D^{2K})$$
+    \item Now to get the final tensor we contract from left to right with a cost of $$\sum_{i=1}^{N-1} d^{2i+2}\cdot D^{2K}=O(D^{2K}d^{2N})$$
+    \item And we get a matrix times vector with the cost of $d^{2N}$ 
+    \item We summarize with $$O(D^{2K}d^{2N})$$
+for the construction, but then we have the matrix and only need to multiply with $d^{2N}$ vectors
+\end{enumerate} 
+
+\subsection{Kron Hutch}
+\begin{enumerate}
+    \item (sketch physical dimension) Sketch each dangling dimension with an $m\times d$  matrix for a cost of $$O(N(D^2\cdot d^2\cdot m+m^2\cdot d\cdot D^2))=_{d=O(1)}O(N\cdot m^2\cdot d\cdot D^2)$$ 
+    \item (Contract columns) Contract the columns from bottom to top where each $i$-th row in the column contraction costs $D^{2i} \cdot m\cdot d\cdot D^2\cdot d=d^2\cdot m \cdot D^{2i+2} $  which costs $$\sum_{i=1}^{K-1} m\cdot d^2\cdot D^{2i+2}=m\cdot d^2\cdot D^2\cdot \frac{D^2(1-D^{2(K-1-1)})}{1-D^2}=O(m\cdot d^2\cdot D^{2K}) $$ 
+    \item Contract rows from left to right, where each $i$-th row costs $(m^{2i})\cdot D^K\cdot (m^2\cdot D^K)=D^{2K}\cdot m^{2i+2}$  so in total it costs: $$\sum_{i=1}^{N-1}D^{2K}\cdot m^2 \cdot m^{2i}=D^{2K}m^2\sum_{i=1}^{N-1}m^{2i}=O(m^{2N}\cdot D^{2K})$$  
+    \item Calculate trace for an $m^N\times m^N$  matrix, for a cost of $O(m^N$) 
+
+\item Summary costs $$O(m^{2N}\cdot D^{2K})$$
+\end{enumerate}
+
+\subsection{MPO Hutch}
+ We sketch each MPO, reshape to an $m^n\times m^n$  matrix and and multiply
+\begin{enumerate}
+    \item for each $k$  row, we sketch $N$  nodes each with the cost of $md^2D^2 + m^2dD^2$  so with a cost of $$K\cdot N\cdot (m^2dD^2)$$
+    \item  We multiply the $K$  matrices sized $m^N\times m^N$  to get a cost of $$K\cdot m^{3N}$$
+    \item Summary cost of $$O(K\cdot (m^{3N} +m^2dD^2N))$$
+\end{enumerate}
+
+\subsection{Novel Hutch}
+\begin{enumerate}
+    \item We change our original algorithm to calculate $Tr(A^k)$ we assume (needs to be proved that) $$Tr(A^k)=Tr(E[SA^kS^T])=Tr(E[S_kAS_k^T\cdots S_1AS_1^T])$$ if it is true we can calculate $SAS^T$  than multiply the $k$  matrices
+    \item Start with Kronecker for an MPO, i.e. $N$ times from above, with $m\cdot d\cdot (D^2\cdot d)$  then $N$ times for below with $m\cdot d \cdot (D^2 m)$  so $$N(md^2D^2 + m^2dD^2)$$ 
+    \item Now embed each 2 nodes with a tree from above and below. A naive cost (maybe there is a better one) in a symmetrical way for  $N-1$ times so we get an asymptotical cost of $$O(N\cdot( m^4D))$$ 
+    \item We calculate that $k$ times to get a cost of $$O(KN\cdot m^4D)$$ 
+    \item We add multiply $k$ matrices sized $m\times m$  for a total cost of $O(m^3k)$, which is negligable compared to the sketching.
+    \item Finally getting $$O(K\cdot N \cdot m^4D)$$
+\end{enumerate}
+\newpage
+\begin{table}
+    \centering
+    \begin{tabular}{|l||c|l|c|c|}\hline
+           &Plain Hutch&Kron Hutch&  MPO Hutch& Novel Hutch\\\hline
+           Cost&$D^{2K}d^{2N}+d^{2N}$&$D^{2K}m^{2N}$&  $K\cdot (m^{3N} +N(D^2 + md^2D^2))$& $K\cdot (m^4DN + md(d+m)D^2N)$\\ \hline
+           Cost ($m=1$)&$D^{2K}d^{2N}+d^{2N}$& $D^{2K}$ &  $K\cdot ( d^2D^2N)$& $K\cdot (DN +d^2D^2N)$\\
+          \hline
+ Error& & & &\\\hline
+    \end{tabular}
+    \caption{Asymptotic Cost and Error Summary}
+    \label{tab:placeholder}
+\end{table}
+\begin{corollary}[Compare between MPO Hutch (Noa) and Novel Hutch (Solomonik)]
+    By looking at the differences between MPO Hutch and Novel Hutch 
+    we note that for the MPOP case ($K>1$) MPO Hutch suffers from an exponenetial dependence in $N$ while Novel Hutch remains linear in $N$.
+    We should note that for the MPO case, i.e. $K=1$, MPO Hutch doesn't need to construct the entire sketched matrix, i.e. we skip the $m^{3N}$ full matrix construction part and replace it with a simple tensor network sweep that costs $O(NmD^2)$  to calculate the trace for a tensor network. See fig (\ref{fig:MPO_hutch_ilustration}).
+\end{corollary}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{images_for_MPOP_ilustrations/kronecker_sketched_mpo_trace_small_ilustraition.png}
+    \caption{MPO Kron Hutch Ilustration}
+    \label{fig:MPO_hutch_ilustration}
+\end{figure}
+
+Assume $\operatorname{Var}(\hat T)/T^2 = (1+1/m)^N - 1$. Chebyshev gives
+\[
+  \Pr[\,|\hat T - T| > \varepsilon T\,] \le \frac{(1+1/m)^N - 1}{\varepsilon^2} \le \delta
+  \;\iff\; N\log(1+1/m) \le \log(1+\varepsilon^2\delta),
+\]
+and $\log(1+x)\approx x$ on both sides yields $m \gtrsim N/(\varepsilon^2 \delta)$.
+
+\end{document}
+
+
+

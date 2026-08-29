@@ -1,0 +1,32 @@
+{
+  "d": 2,
+  "N": 10,
+  "ms": [
+    1,
+    5,
+    10,
+    30
+  ],
+  "Ks": [
+    1,
+    3,
+    5,
+    7
+  ],
+  "A_kinds": [
+    "identity",
+    "all_ones"
+  ],
+  "algos": [
+    "dense_tree",
+    "tt",
+    "tt_capped"
+  ],
+  "dist": "rademacher",
+  "base_batch": 1,
+  "budget": "auto",
+  "points": 100,
+  "burn": 0.3,
+  "seed": 0,
+  "run_self_test": false
+}
