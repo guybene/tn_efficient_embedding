@@ -1,0 +1,515 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, citecolor=blue!50!black}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+\DeclareMathOperator{\Tr}{Tr}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\vecop}{vec}
+\newcommand{\IR}{\mathbb{R}}
+\newcommand{\IE}{\mathbb{E}}
+\newcommand{\bP}{\boldsymbol{P}}
+\newcommand{\bbeta}{\boldsymbol{\beta}}
+\newcommand{\Wtilde}{\widetilde{W}}
+\newcommand{\utilde}{\widetilde{u}}
+
+\title{A closed-form expression for $\Tr\!\bigl(M\,(A\otimes A)\bigr)$\\
+when $A$ is given as a Matrix Product Operator}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Goal and statement}
+
+Fix integers $m \ge 1$, $N \ge 3$, $d \ge 2$, set $D = d^N$, and write
+$\bP = \{A, U_1, U_2, 4K\}$ for the four ``replica patterns'' of
+$\{a,b,c,d\}$ defined in equation~\eqref{eq:patterns} below. Let
+\[
+M \in \IR^{D^2 \times D^2}
+\]
+be the second-moment matrix of the $TT$ sketch, with rows indexed by
+$(i^a, i^c) \in [d]^N \times [d]^N$ and columns by $(i^b, i^d)$,
+\begin{equation}\label{eq:Mdef}
+M\bigl[(i^a,i^c),\,(i^b,i^d)\bigr] \;=\;
+\IE\!\left[\,(S^\top S)_{i^a,i^b}\,(S^\top S)_{i^c,i^d}\,\right].
+\end{equation}
+Thanks to the chain construction of the thesis, $M$ admits a description
+as a finite sum over pattern sequences $\bP^N$, with per-site pattern
+transfer matrices $W^P$ and boundary vectors $u_{\text{init}}^{(P_1,P_2)}$,
+$u_{\text{end}}^{P_N}$, all of which are explicit polynomials in
+$(m, m_1, m_2, \sigma_2, \sigma_4)$ where $m=m_1m_2$ is the gadget
+factorization and $(\sigma_2,\sigma_4)$ are the second and fourth moments
+per entry. We recall this construction in
+Section~\ref{sec:M-chain}.
+
+Suppose now that we are given a symmetric matrix
+$A \in \IR^{D \times D}$ in \emph{Matrix Product Operator (MPO) form},
+that is, parameterized by $N$ tensors
+\[
+A^{(l)} \in \IR^{r_L^{(l)} \times d \times d \times r_R^{(l)}}, \qquad l=1,\dots,N,
+\]
+with $r_L^{(1)} = r_R^{(N)} = 1$ (rank-$1$ boundaries) and matching internal
+bonds $r_R^{(l)} = r_L^{(l+1)} =: r_l$. The MPO defines the entries of $A$ via
+\begin{equation}\label{eq:Adef}
+A_{ij} \;=\; A^{(1)}_{i_1 j_1}\,A^{(2)}_{i_2 j_2} \cdots A^{(N)}_{i_N j_N},
+\qquad i,j\in[d]^N,
+\end{equation}
+where $i = (i_1,\dots,i_N)$, $j = (j_1,\dots,j_N)$, and we write
+$A^{(l)}_{ab} \in \IR^{r_{l-1} \times r_l}$ for the matrix obtained by
+fixing the two physical indices to $(a,b)$. The right-hand side of
+\eqref{eq:Adef} is therefore a product of $N$ matrices of sizes
+$1\times r_1, r_1\times r_2,\dots, r_{N-1}\times 1$, which evaluates to a
+scalar.
+
+\medskip
+
+The goal of this note is to prove and verify the following closed-form
+expression for the bilinear form $\Tr\bigl(M(A\otimes A)\bigr)$.
+
+\begin{theorem}[Closed form]\label{thm:main}
+Let $M$ be the matrix defined in \eqref{eq:Mdef} and let $A$ be the matrix
+defined in \eqref{eq:Adef}. For every site $l\in\{1,\dots,N\}$ and every
+pattern $P\in\bP$, define the per-site $r_{l-1}^2 \times r_l^2$ matrix
+\begin{equation}\label{eq:beta-def}
+\beta_P^{(l)}\bigl[(\alpha,\gamma),(\alpha',\gamma')\bigr]
+\;=\;
+\sum_{(a,b,c,d)\in P}
+A^{(l)}_{ab}[\alpha,\alpha']\;A^{(l)}_{cd}[\gamma,\gamma'],
+\end{equation}
+where the sum is over $4$-tuples $(a,b,c,d)\in[d]^4$ that realize the
+pattern $P$ (Definition~\ref{def:patterns} below). Then
+\begin{equation}\label{eq:thm-main}
+\boxed{\;
+\Tr\bigl(M\,(A\otimes A)\bigr) \;=\;
+\utilde_{\mathrm{end}}^{\!\top}
+\;\Wtilde^{(N-1)}\,\Wtilde^{(N-2)}\cdots\Wtilde^{(3)}\;
+\utilde_{\mathrm{init}}\;}
+\end{equation}
+where the aggregated quantities are
+\begin{align}
+\Wtilde^{(l)}
+&= \sum_{P\in\bP}\, W^P \,\otimes\, \bigl(\beta_P^{(l)}\bigr)^{\!\top}
+&& (l = 3,\dots,N-1)\;,\label{eq:Wtilde}\\[2pt]
+\utilde_{\mathrm{init}}
+&= \sum_{P_1,P_2\in\bP}\,
+u_{\mathrm{init}}^{(P_1,P_2)}\,\otimes\,
+\vecop\!\bigl(\beta_{P_1}^{(1)}\,\beta_{P_2}^{(2)}\bigr),
+\label{eq:uinit}\\[2pt]
+\utilde_{\mathrm{end}}
+&= \sum_{P\in\bP}\,
+u_{\mathrm{end}}^{P}\,\otimes\,
+\vecop\!\bigl(\beta_P^{(N)}\bigr).
+\label{eq:uend}
+\end{align}
+\end{theorem}
+
+The right-hand side of \eqref{eq:thm-main} is a length-$(N-2)$ matrix-vector
+product on a space of dimension $4 r^2$ (with $r := \max_l r_l$), and is
+therefore computable in $O(N r^6)$ floating-point operations. Both
+$\utilde_{\mathrm{init}}$ and $\utilde_{\mathrm{end}}$ are vectors of length
+$4 r^2$.
+
+The remainder of the note proves \eqref{eq:thm-main}. We first introduce
+notation (Section~\ref{sec:notation}), recall the chain structure of $M$
+(Section~\ref{sec:M-chain}), establish the MPO-times-MPO factorization
+of the joint contraction (Section~\ref{sec:mpo-double}), and finally
+combine the two chains into the aggregated form
+(Section~\ref{sec:assemble}). A numerical verification across six
+configurations agrees with the brute-force evaluation
+$\vecop(A)^\top M \,\vecop(A)$ to machine precision (Table~\ref{tab:verify}).
+
+\section{Notation and conventions}\label{sec:notation}
+
+\subsection{Indices and tensor product}
+We use multi-indices $i = (i_1,\dots,i_N)\in[d]^N$ for the rows and columns
+of operators on $\IR^D$. The Kronecker product of matrices
+$X\in\IR^{m\times n}$ and $Y\in\IR^{p\times q}$ is the
+$mp\times nq$ matrix $X\otimes Y$ with entries
+\[
+(X\otimes Y)\bigl[(i,k),\,(j,l)\bigr] \;=\; X_{ij}\,Y_{kl},
+\]
+where the row index $(i,k)$ is read as $i\cdot p + k$ and the column index
+$(j,l)$ as $j\cdot q + l$. The vectorization $\vecop:\IR^{p\times q}\to\IR^{pq}$
+is defined by $\vecop(X)_{ip+k} = X_{ik}$ (row-major). Two identities used
+repeatedly are
+\begin{equation}\label{eq:kron-identities}
+(X\otimes Y)(Z\otimes W) \;=\; (XZ)\otimes(YW),
+\qquad
+\Tr(X\otimes Y) \;=\; \Tr(X)\,\Tr(Y).
+\end{equation}
+
+\subsection{The four replica patterns}\label{def:patterns}
+A \emph{pattern} $P\in\bP$ is an equivalence relation on the set
+$\{a,b,c,d\}$ of four ``replica labels'' such that every block has even
+size. There are exactly four such relations: the trivial one and three
+pairings, namely
+\begin{equation}\label{eq:patterns}
+\begin{aligned}
+4K  &: \{a=b=c=d\}, \\
+A   &: \{a=b\}\sqcup\{c=d\}, \\
+U_1 &: \{a=c\}\sqcup\{b=d\}, \\
+U_2 &: \{a=d\}\sqcup\{b=c\}.
+\end{aligned}
+\end{equation}
+Given a $4$-tuple $(a,b,c,d)\in[d]^4$, we write $(a,b,c,d)\in P$ to mean
+that the equality pattern of $(a,b,c,d)$ equals $P$. Explicitly,
+\[
+\begin{aligned}
+(a,b,c,d)\in 4K  &\iff a=b=c=d,\\
+(a,b,c,d)\in A   &\iff a=b,\;c=d,\;a\ne c,\\
+(a,b,c,d)\in U_1 &\iff a=c,\;b=d,\;a\ne b,\\
+(a,b,c,d)\in U_2 &\iff a=d,\;b=c,\;a\ne b.
+\end{aligned}
+\]
+Tuples outside these four patterns have an odd-sized block and contribute
+zero to all moments below; we ignore them.
+
+\section{Chain structure of $M$}\label{sec:M-chain}
+
+We recall the form of $M$ produced by the thesis construction. (No new
+material; this section fixes notation that is used throughout.)
+
+\begin{proposition}[Thesis chain decomposition]\label{prop:M-chain}
+There exist scalar quantities $V(P_1,\dots,P_N)\in\IR$ indexed by pattern
+sequences $\bP^N$ such that, for every choice of multi-indices
+$i^a,i^b,i^c,i^d\in[d]^N$,
+\begin{equation}\label{eq:M-as-sum}
+M\bigl[(i^a,i^c),(i^b,i^d)\bigr]
+\;=\;
+\sum_{(P_1,\dots,P_N)\in\bP^N}
+\Bigl(\,\textstyle\prod_{l=1}^N \mathbf{1}\!\bigl[(i^a_l,i^b_l,i^c_l,i^d_l)\in P_l\bigr]\Bigr)
+\,V(P_1,\dots,P_N).
+\end{equation}
+Moreover, $V$ has the chain (transfer-matrix) factorization
+\begin{equation}\label{eq:V-chain}
+V(P_1,\dots,P_N)
+\;=\;
+\bigl(u_{\mathrm{end}}^{P_N}\bigr)^{\!\top}\,
+W^{P_{N-1}}\, W^{P_{N-2}}\cdots W^{P_3}\,
+u_{\mathrm{init}}^{(P_1,P_2)},
+\end{equation}
+where $W^P\in\IR^{4\times 4}$ for $P\in\bP$ and
+$u_{\mathrm{init}}^{(P_1,P_2)}, u_{\mathrm{end}}^{P_N}\in\IR^4$
+are the explicit polynomials in $(m,m_1,m_2,\sigma_2,\sigma_4)$ given
+by formulas (19), (20), (21) of the thesis.
+\end{proposition}
+
+The interpretation of \eqref{eq:M-as-sum} is straightforward: $M$ is built
+by summing, over all $4^N$ assignments of a per-site pattern, the product
+of an indicator (only those $(i^a,i^b,i^c,i^d)$ that match the pattern
+contribute) and a chain value $V$.
+
+\section{Goal as an explicit four-fold sum}\label{sec:goal}
+
+The bilinear form $\Tr(M\cdot Y)$ for any $Y\in\IR^{D^2\times D^2}$ is
+\[
+\Tr(M Y) \;=\; \sum_{I,J}\, M_{IJ}\,Y_{JI},
+\]
+where $I,J\in[D^2]$. With $Y = A\otimes A$, decoded into the user's
+$(i^a,i^b,i^c,i^d)$ convention,
+\[
+(A\otimes A)\bigl[(i^b,i^d),(i^a,i^c)\bigr] \;=\;
+A_{i^b i^a}\,A_{i^d i^c} \;=\; A_{i^a i^b}\,A_{i^c i^d}
+\quad\text{(since $A=A^\top$)}.
+\]
+Hence
+\begin{equation}\label{eq:trMB-base}
+\Tr\bigl(M(A\otimes A)\bigr)
+\;=\;
+\sum_{i^a,i^b,i^c,i^d \in [d]^N}
+A_{i^a i^b}\,A_{i^c i^d}\,
+M\bigl[(i^a,i^c),(i^b,i^d)\bigr].
+\end{equation}
+This identity is independent of any sketch structure and holds for any
+symmetric $A$ and any $M$ in the user's convention.
+
+\section{The MPO factorization of $A_{i^a i^b}\,A_{i^c i^d}$}\label{sec:mpo-double}
+
+Substituting~\eqref{eq:Adef} into the product yields, with double indices
+on the bond legs $(\alpha_l)_{l=0}^N$ and $(\gamma_l)_{l=0}^N$
+(both with closed boundaries $\alpha_0=\alpha_N=\gamma_0=\gamma_N=1$),
+\[
+A_{i^a i^b}\,A_{i^c i^d}
+\;=\;
+\Bigl(\prod_{l=1}^N
+A^{(l)}_{i^a_l i^b_l}[\alpha_{l-1},\alpha_l]\Bigr)\,
+\Bigl(\prod_{l=1}^N
+A^{(l)}_{i^c_l i^d_l}[\gamma_{l-1},\gamma_l]\Bigr).
+\]
+Combining the two products site-by-site as a tensor product on the bond legs,
+\begin{equation}\label{eq:AA-mpo-prod}
+A_{i^a i^b}\,A_{i^c i^d}
+\;=\;
+\prod_{l=1}^N
+\bigl(A^{(l)}_{i^a_l i^b_l} \otimes A^{(l)}_{i^c_l i^d_l}\bigr)\!
+\bigl[(\alpha_{l-1},\gamma_{l-1}),\,(\alpha_l,\gamma_l)\bigr],
+\end{equation}
+where the product is now a matrix product on the joint bond space
+$\IR^{r_{l-1}^2}\to\IR^{r_l^2}$, evaluated at the closed boundary indices.
+
+\section{Combining the two chains}\label{sec:assemble}
+
+We now substitute \eqref{eq:M-as-sum} and \eqref{eq:AA-mpo-prod}
+into~\eqref{eq:trMB-base} and exchange sums.
+
+\subsection{Per-site collapse via $\beta_P^{(l)}$}
+
+Plugging \eqref{eq:M-as-sum} into \eqref{eq:trMB-base}:
+\[
+\Tr(M(A\otimes A))
+\;=\;
+\sum_{(P_1,\dots,P_N)}
+V(P_1,\dots,P_N)
+\sum_{\substack{i^a,i^b,i^c,i^d:\\ (i^a_l,i^b_l,i^c_l,i^d_l)\in P_l\,\forall l}}
+A_{i^a i^b}\,A_{i^c i^d}.
+\]
+The inner sum factorizes site by site because the indicator constraints and
+the MPO product~\eqref{eq:AA-mpo-prod} are both products over $l$:
+\begin{align*}
+&\sum_{\substack{i^a,i^b,i^c,i^d:\\ (i^a_l,i^b_l,i^c_l,i^d_l)\in P_l\,\forall l}}
+A_{i^a i^b}\,A_{i^c i^d} \\
+&\quad=\;
+\sum_{\alpha,\gamma}
+\prod_{l=1}^N\;
+\sum_{(a,b,c,d)\in P_l}
+\bigl(A^{(l)}_{ab}\otimes A^{(l)}_{cd}\bigr)\!
+\bigl[(\alpha_{l-1},\gamma_{l-1}),(\alpha_l,\gamma_l)\bigr] \\
+&\quad=\;
+\sum_{\alpha,\gamma}
+\prod_{l=1}^N \beta_{P_l}^{(l)}\bigl[(\alpha_{l-1},\gamma_{l-1}),(\alpha_l,\gamma_l)\bigr],
+\end{align*}
+where in the last step we used the definition~\eqref{eq:beta-def} of
+$\beta_P^{(l)}$. The remaining sum over closed bond indices
+$(\alpha,\gamma)$ is, by inspection, the $(1,1)$-entry of the matrix product
+of $\beta$'s:
+\begin{equation}\label{eq:beta-trace}
+\sum_{\substack{i^a,i^b,i^c,i^d:\\ (i^a_l,i^b_l,i^c_l,i^d_l)\in P_l\,\forall l}}
+A_{i^a i^b}\,A_{i^c i^d}
+\;=\;
+\bigl(\beta_{P_1}^{(1)}\,\beta_{P_2}^{(2)}\cdots\beta_{P_N}^{(N)}\bigr)\!\bigl[1,1\bigr].
+\end{equation}
+(Recall that $r_0 = r_N = 1$, so this product has shape $1\times 1$.)
+
+\subsection{Joining the two chains}
+
+Substituting \eqref{eq:beta-trace} and \eqref{eq:V-chain}:
+\begin{equation}\label{eq:two-chains}
+\Tr(M(A\otimes A))
+\;=\;
+\sum_{(P_1,\dots,P_N)}
+\Bigl[\,\bigl(u_{\mathrm{end}}^{P_N}\bigr)^{\!\top}
+W^{P_{N-1}}\cdots W^{P_3}\,u_{\mathrm{init}}^{(P_1,P_2)}\Bigr]
+\Bigl[\,\beta_{P_1}^{(1)}\,\beta_{P_2}^{(2)}\cdots\beta_{P_N}^{(N)}
+\bigr]\!\bigl[1,1\bigr].
+\end{equation}
+The two bracketed factors are independent products: the first runs over
+$P_3,\dots,P_{N-1}$ in the $4$-dimensional ``replica-pattern'' space, the
+second runs over $P_1,\dots,P_N$ in the $r^2$-dimensional ``MPO-bond''
+space. Because the patterns at different sites are summed independently,
+we can interleave the sums: at each interior site $l\in\{3,\dots,N-1\}$ the
+contribution is
+\[
+\sum_{P_l\in\bP}\, W^{P_l}\;\otimes\;\beta_{P_l}^{(l)\,\top}.
+\]
+The transpose appears because the $W^{P_l}$ is acting on the replica space
+in the ``$\text{out}\leftarrow\text{in}$'' direction (left multiplication),
+whereas $\beta_{P_l}^{(l)}$, by definition~\eqref{eq:beta-def}, has its rows
+indexed by the \emph{left} bond and its columns by the \emph{right} bond, and
+thus acts on the bond space in the ``$\text{in}\rightarrow\text{out}$''
+direction (right multiplication). Transposing $\beta_{P_l}^{(l)}$ aligns the
+two directions so they can be combined into a single
+``$\text{out}\leftarrow\text{in}$'' transfer matrix
+\begin{equation}\label{eq:Wtilde-derived}
+\Wtilde^{(l)} \;=\; \sum_{P\in\bP}\, W^P\,\otimes\,\bigl(\beta_P^{(l)}\bigr)^{\!\top}
+\quad\in\;\IR^{4 r_l^2 \,\times\, 4 r_{l-1}^2},
+\end{equation}
+which matches \eqref{eq:Wtilde}.
+
+The boundary terms are obtained by absorbing sites $l\in\{1,2\}$ into a
+single initial vector and site $l=N$ into a single end vector. For the
+initial vector, sites $1$ and $2$ contribute
+\[
+u_{\mathrm{init}}^{(P_1,P_2)}\;\otimes\;\vecop\!\bigl(\beta_{P_1}^{(1)}\,\beta_{P_2}^{(2)}\bigr),
+\]
+where $\vecop(\,\cdot\,)$ flattens the $1\times r_2^2$ row vector into an
+element of $\IR^{r_2^2}$ (the leftmost MPO bond is closed, $r_0=1$, so
+$\beta_{P_1}^{(1)}\,\beta_{P_2}^{(2)}$ is a row vector). For the end
+vector, site $N$ contributes
+\[
+u_{\mathrm{end}}^{P_N}\;\otimes\;\vecop\!\bigl(\beta_{P_N}^{(N)}\bigr),
+\]
+where $\beta_{P_N}^{(N)}$ is a column vector of length $r_{N-1}^2$
+(rightmost bond closed, $r_N=1$). Summing over $P_1,P_2,P_N$ gives the
+expressions \eqref{eq:uinit} and \eqref{eq:uend}.
+
+The total contraction is therefore the matrix-vector chain
+\eqref{eq:thm-main}, which proves Theorem~\ref{thm:main}.
+
+\subsection{The variance}
+
+A small corollary, useful in applications: since $\IE[S^\top S] = I_D$,
+\[
+\IE\bigl[\langle S^\top S, A\rangle\bigr] \;=\; \tr(A),
+\]
+and consequently
+\begin{equation}\label{eq:variance}
+\mathrm{Var}\bigl(\langle S^\top S, A\rangle\bigr)
+\;=\;
+\Tr\bigl(M\,(A\otimes A)\bigr)\;-\;\tr(A)^2,
+\end{equation}
+where $\Tr(M(A\otimes A))$ is given by \eqref{eq:thm-main} and $\tr(A)$
+is the standard MPO trace
+\[
+\tr(A) \;=\; \prod_{l=1}^N\Bigl(\sum_{a\in[d]} A^{(l)}_{aa}\Bigr).
+\]
+
+\section{Closed-form values of $\beta_P^{(l)}$}\label{sec:beta-explicit}
+
+It is convenient to write each $\beta_P^{(l)}$ in terms of simpler bond
+matrices. Let
+\[
+S_d^{(l)} \;=\; \sum_{a=1}^d A^{(l)}_{aa},
+\qquad
+\Delta^{(l)} \;=\; \sum_{a=1}^d A^{(l)}_{aa}\otimes A^{(l)}_{aa}.
+\]
+Then \eqref{eq:beta-def} unfolds as follows.
+\begin{align*}
+\beta_{4K}^{(l)} \;&=\; \Delta^{(l)},\\
+\beta_{A}^{(l)}  \;&=\; \bigl(S_d^{(l)}\bigr)\otimes\bigl(S_d^{(l)}\bigr) \;-\; \Delta^{(l)},\\
+\beta_{U_1}^{(l)} \;&=\; \sum_{a,b=1}^{d} A^{(l)}_{ab}\otimes A^{(l)}_{ab} \;-\; \Delta^{(l)},\\
+\beta_{U_2}^{(l)} \;&=\; \sum_{a,b=1}^{d} A^{(l)}_{ab}\otimes A^{(l)}_{ba} \;-\; \Delta^{(l)}.
+\end{align*}
+
+\paragraph{Sanity checks.}
+\begin{itemize}
+\item For $A^{(l)} = I_d$ (the identity, an MPO of rank~$1$), one has
+$A^{(l)}_{ab} = \delta_{ab}$, so $\Delta^{(l)} = d$ and
+$\beta_{4K}^{(l)} = d$, $\beta_A^{(l)} = d^2 - d = d(d-1)$,
+$\beta_{U_1}^{(l)} = \beta_{U_2}^{(l)} = 0$. These are exactly the
+multiplicities used in the trace lemma of the thesis (the case $A=I$
+of \eqref{eq:thm-main} reduces to $\Tr(M)$).
+\item For $A^{(l)} = J_d = \mathbf{1}\mathbf{1}^\top$, one has
+$A^{(l)}_{ab} = 1$ for all $a,b$, so
+$\beta_{4K}^{(l)} = d$ and
+$\beta_A^{(l)} = \beta_{U_1}^{(l)} = \beta_{U_2}^{(l)} = d(d-1)$.
+This recovers the all-ones $A$ case discussed in the thesis.
+\end{itemize}
+
+\section{Numerical verification}\label{sec:verify}
+
+We compute~\eqref{eq:thm-main} and compare against the brute-force
+evaluation $\vecop(A)^\top M\,\vecop(A)$ for the materialized
+$D^2\times D^2$ matrix $M$. Random MPO cores $A^{(l)}$ are drawn
+i.i.d.~Gaussian with shape $r_{l-1}\times d\times d\times r_l$, varying
+the bond rank $r$. Six configurations:
+
+\medskip
+\begin{table}[h]
+\centering
+\begin{tabular}{ccccccccc}
+\toprule
+$m$ & $N$ & $d$ & $r$ & dist.\ &
+$\Tr(M(A\otimes A))$ (closed) & $\vecop(A)^\top M\,\vecop(A)$ & rel.~err.\\
+\midrule
+4 & 3 & 2 & 1 & gauss   & $1.20357\!\times\!10^{1}$ & $1.20357\!\times\!10^{1}$ & $8.9\!\times\!10^{-16}$\\
+4 & 3 & 2 & 2 & gauss   & $2.62746\!\times\!10^{2}$ & $2.62746\!\times\!10^{2}$ & $6.5\!\times\!10^{-16}$\\
+4 & 4 & 2 & 2 & rad     & $2.10802\!\times\!10^{2}$ & $2.10802\!\times\!10^{2}$ & $2.7\!\times\!10^{-16}$\\
+4 & 4 & 2 & 3 & gauss   & $3.93434\!\times\!10^{4}$ & $3.93434\!\times\!10^{4}$ & $1.9\!\times\!10^{-16}$\\
+4 & 5 & 2 & 2 & rad     & $1.02678\!\times\!10^{5}$ & $1.02678\!\times\!10^{5}$ & $2.8\!\times\!10^{-16}$\\
+6 & 4 & 3 & 2 & gauss   & $2.68329\!\times\!10^{4}$ & $2.68329\!\times\!10^{4}$ & $4.1\!\times\!10^{-16}$\\
+\bottomrule
+\end{tabular}
+\caption{Closed form vs.\ brute force for $\Tr(M(A\otimes A))$, agreement
+to the level of double-precision rounding.}
+\label{tab:verify}
+\end{table}
+
+A reference implementation in approximately 100 lines of Python is provided
+in the file {\tt trace\_MB\_mpo.py}; running it as a script reproduces the
+table above.
+
+\section{Cost and remarks}
+
+\paragraph{Computational cost.} With $r := \max_l r_l$, the dominant cost
+is the propagation step \eqref{eq:Wtilde}: each $\Wtilde^{(l)}$ has size
+$4 r^2 \times 4 r^2$, and its application to a vector of length $4 r^2$
+costs $O(r^4)$ floating-point operations (after exploiting the Kronecker
+structure, the cost is $O(r^4)$ and not $O(r^8)$). Over $N-3$ interior
+sites, total cost is $O(N r^4)$. Building each $\beta_P^{(l)}$ from the
+core $A^{(l)}$ costs $O(d^2 r^4)$.
+
+\paragraph{Comparison with the row-sum bound.} The thesis row-sum lemma
+gives $\Tr(M B) \le R\cdot\Tr(B)$ where $R$ is the maximum row sum of $M$.
+For PSD $A$ this implies
+$\mathrm{Var}(\langle S^\top S,A\rangle)\le (R-1)\,\tr(A)^2$. Numerically
+$R - 1$ scales as $\alpha(d)^N/m$ with $\alpha(d)\approx d$, so the bound
+is exponential in $N$. The closed form \eqref{eq:thm-main} replaces the
+bound by an exact value and exhibits no such blow-up; in particular for
+$A = I$ one verifies $\Tr(M)/d^{2N} \approx (1+a(d)/m)^N$ with $a(d)$ a
+small constant, which is the optimal-shape regime.
+
+\paragraph{Higher moments.} The same construction extends to
+$\Tr\bigl((M(A\otimes A))^k\bigr)$ for any $k\ge 1$ by treating the $k$-fold
+contraction as a chain of $k$ stacked aggregated transfer matrices, with
+appropriate trace-closure boundary. The result is a matrix-vector chain on
+$\IR^{(4r^2)^k}$; we omit the details here.
+
+\appendix
+
+\section{Reminder: explicit forms of $W^P$, $u_{\mathrm{init}}^{(P_1,P_2)}$,
+$u_{\mathrm{end}}^{P_N}$}\label{app:W-formulas}
+
+For completeness we record the formulas from the thesis. With
+$\sigma_2 = 1/m$, and $\sigma_4 = \sigma_2^2$ (Rademacher) or
+$\sigma_4 = 3\sigma_2^2$ (Gaussian), and $(m_1,m_2)$ the closest integer
+factor pair of $m$, define for $P, Q\in\bP$ the partition meet
+$P\wedge Q$ (the partition whose blocks are intersections of $P$- and
+$Q$-blocks; if $P\wedge Q$ has any odd-sized block, set
+$\pi(P\wedge Q):=\varnothing$ and let the moments below vanish). Define the
+multiplicity
+\[
+N_P(M) \;=\;
+\begin{cases}
+M & \text{if }P = 4K,\\
+M(M-1) & \text{otherwise},
+\end{cases}
+\]
+and the moment functions
+\[
+\mu^X_{P,B} \;=\;
+\begin{cases}
+\sigma_4 & \pi(P\wedge B) = 4K,\\
+\sigma_2^2 & \pi(P\wedge B) \in \{A, U_1, U_2\},\\
+0 & \text{else,}
+\end{cases}
+\qquad
+\mu^g_{L,R} \;=\;\sum_{s\in\bP} N_s(m)\,\mu^X_{L,s}\,\mu^X_{R,s}.
+\]
+The $4\times 4$ pattern transfer matrix is
+\begin{equation}\label{eq:W-explicit}
+W^P\bigl[Z_o,Z_i\bigr]
+\;=\;
+N_{Z_o}(m)\sum_{s_1,s_2\in\bP}
+N_{s_1}(m_1)\,N_{s_2}(m_2)\,
+\mu^X_{P,\,s_1\wedge s_2}\,
+\mu^g_{Z_i\wedge s_1,\,s_2\wedge Z_o},
+\end{equation}
+and the boundary vectors $u_{\mathrm{init}}^{(P_1,P_2)},u_{\mathrm{end}}^{P_N}$
+are given by analogous explicit polynomials (formulas (20), (21) of the
+thesis). These quantities depend only on $m$ and the noise distribution,
+not on $A$, $N$, or $d$.
+
+\end{document}

@@ -1,0 +1,322 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\geometry{a4paper, margin=1in}
+
+\title{Trace Estimation of PSD MPOs via Tensor Network Sketching}
+\author{}
+\date{}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction and Setup}
+
+Let $A \in \mathbb{R}^{d^N \times d^N}$ be a Positive Semi-Definite (PSD) Matrix Product Operator (MPO) defined on $N$ sites, with physical dimension $d$ and bond dimension $D$. As $A$ is PSD, it admits the spectral decomposition:
+\begin{equation}
+    A = \sum_{i=1}^{d^N} \lambda_i u_i u_i^T,
+\end{equation}
+where $\lambda_i \ge 0$ are the eigenvalues and $u_i \in \mathbb{R}^{d^N}$ are the corresponding orthonormal eigenvectors. 
+
+We are interested in estimating the exact trace of $A$:
+\begin{equation}
+    \operatorname{Tr}(A) = \sum_{i=1}^{d^N} \lambda_i.
+\end{equation}
+
+We estimate this trace using a sketching matrix $S \in \mathbb{R}^{m \times d^N}$ formulated as a chain-structured tensor network. The sketched matrix is $S A S^T \in \mathbb{R}^{m \times m}$, and our estimator is $\operatorname{Tr}(S A S^T)$.
+
+\subsection{Proof of the $(\epsilon, \delta)$-Embedding for $\operatorname{Tr}(S A S^T)$}
+
+\begin{theorem}\label{thm:k1}
+Given a chain-structured sketching matrix $S \in \mathbb{R}^{m \times d^N}$ that satisfies the $(\epsilon, \delta')$-embedding property from Theorem 3.2 of Ma and Solomonik (arXiv:2205.13163) for $\delta' = \frac{\delta}{d^N}$, the trace of the sketched MPO satisfies:
+\begin{equation}
+    \mathbb{P}\left( \left| \operatorname{Tr}(S A S^T) - \operatorname{Tr}(A) \right| \le \epsilon \operatorname{Tr}(A) \right) \ge 1 - \delta.
+\end{equation}
+Furthermore, the required sketching dimension scales as $m = \Theta\left( \frac{N^2 \log d + N \log(1/\delta)}{\epsilon^2} \right)$.
+\end{theorem}
+
+\begin{proof}
+First, we expand the trace of the sketched matrix $S A S^T$ using the spectral decomposition of $A$ and the linearity of the trace operator:
+\begin{align}
+    \operatorname{Tr}(S A S^T) &= \operatorname{Tr}\left( S \left( \sum_{i=1}^{d^N} \lambda_i u_i u_i^T \right) S^T \right) \\
+    &= \sum_{i=1}^{d^N} \lambda_i \operatorname{Tr}\left( S u_i u_i^T S^T \right) \\
+    &= \sum_{i=1}^{d^N} \lambda_i \operatorname{Tr}\left( u_i^T S^T S u_i \right) \\
+    &= \sum_{i=1}^{d^N} \lambda_i \| S u_i \|_2^2. \label{eq:sketched_trace}
+\end{align}
+
+By Theorem 3.2 in arXiv:2205.13163, the sketching matrix $S$ provides an $(\epsilon, \delta')$-accurate embedding for any fixed vector. Therefore, for a fixed eigenvector $u_i$, we have:
+\begin{equation}
+    \mathbb{P}\left( \left| \| S u_i \|_2^2 - \| u_i \|_2^2 \right| \le \epsilon \| u_i \|_2^2 \right) \ge 1 - \delta'.
+\end{equation}
+
+Since $u_i$ is an orthonormal eigenvector, $\| u_i \|_2^2 = 1$, which simplifies the bound to:
+\begin{equation}
+    \mathbb{P}\left( \left| \| S u_i \|_2^2 - 1 \right| \le \epsilon \right) \ge 1 - \delta'.
+\end{equation}
+
+To ensure this bound holds simultaneously for all $d^N$ eigenvectors of $A$, we apply a union bound. Let $E_i$ be the failure event where $\left| \| S u_i \|_2^2 - 1 \right| > \epsilon$. We know that $\mathbb{P}(E_i) \le \delta'$. The probability that at least one such failure event occurs is bounded by:
+\begin{equation}
+    \mathbb{P}\left( \bigcup_{i=1}^{d^N} E_i \right) \le \sum_{i=1}^{d^N} \mathbb{P}(E_i) \le d^N \delta'.
+\end{equation}
+
+By choosing our target failure probability such that $d^N \delta' = \delta$ (meaning $\delta' = \frac{\delta}{d^N}$), the total probability of failure is bounded by $\delta$. Thus, with probability at least $1 - \delta$, the condition $\left| \| S u_i \|_2^2 - 1 \right| \le \epsilon$ holds for all $i \in \{1, \dots, d^N\}$ simultaneously.
+
+Conditioned on this success event, we bound the summation in Equation \ref{eq:sketched_trace}. Substituting the bounds $1 - \epsilon \le \| S u_i \|_2^2 \le 1 + \epsilon$ yields:
+\begin{align}
+    \sum_{i=1}^{d^N} \lambda_i (1 - \epsilon) &\le \operatorname{Tr}(S A S^T) \le \sum_{i=1}^{d^N} \lambda_i (1 + \epsilon) \\
+    (1 - \epsilon) \sum_{i=1}^{d^N} \lambda_i &\le \operatorname{Tr}(S A S^T) \le (1 + \epsilon) \sum_{i=1}^{d^N} \lambda_i \\
+    (1 - \epsilon) \operatorname{Tr}(A) &\le \operatorname{Tr}(S A S^T) \le (1 + \epsilon) \operatorname{Tr}(A).
+\end{align}
+
+Subtracting $\operatorname{Tr}(A)$ gives:
+\begin{equation}
+    \left| \operatorname{Tr}(S A S^T) - \operatorname{Tr}(A) \right| \le \epsilon \operatorname{Tr}(A),
+\end{equation}
+which establishes the $\epsilon$-accuracy of the estimator.
+
+\paragraph{Derivation of the Sketching Dimension $m$:} 
+From Theorem 3.2 of Ma and Solomonik, an $(\epsilon, \delta')$-accurate embedding using a chain-structured tensor network sketch $S$ applied to an $N$-dimensional data tensor requires a sketch size $m$ satisfying:
+\begin{equation}
+    m = \Theta\left( \frac{N \log(1/\delta')}{\epsilon^2} \right).
+\end{equation}
+
+Substituting the required per-vector failure probability $\delta' = \frac{\delta}{d^N}$ dictated by the union bound over the full eigenspace yields the final required sketching dimension:
+\begin{align}
+    m &= \Theta\left( \frac{N \log\left(\frac{d^N}{\delta}\right)}{\epsilon^2} \right) \\
+    &= \Theta\left( \frac{N \left( N \log d + \log(1/\delta) \right)}{\epsilon^2} \right) \\
+    &= \Theta\left( \frac{N^2 \log d + N \log(1/\delta)}{\epsilon^2} \right). \label{eq:m_bound}
+\end{align}
+
+Equation \ref{eq:m_bound} demonstrates that the sketching dimension $m$ must scale quadratically with the number of tensor sites $N$ and logarithmically with the physical dimension $d$ to maintain the overall $(\epsilon, \delta)$-accuracy constraint. Because the union bound evaluates the entire $d^N$-dimensional Hilbert space directly, the specific bond dimension $D$ of the original MPO $A$ does not explicitly alter the required dimension $m$ in this worst-case spectral bounding framework.
+\end{proof}
+
+\subsection{Sample Complexity for Estimating $\operatorname{Tr}(A^k)$, $k \ge 2$}\label{sec:tracek}
+
+Throughout this subsection $n := d^N$ and $0 \neq A = U \Lambda U^T \succeq 0$, where $\Lambda = \operatorname{diag}(\lambda_1,\dots,\lambda_n)$, $\lambda_i \ge 0$, and $U = [u_1,\dots,u_n]$ is orthogonal. Let $S_1,\dots,S_k \in \mathbb{R}^{m \times n}$ be sketching matrices. Cycling the trace and conjugating by $U$, the estimator is
+\begin{equation}\label{eq:Ek-def}
+E_k \;=\; \operatorname{Tr}\!\big(S_1 A S_2^T S_2 A \cdots S_k A S_1^T\big)
+\;=\; \operatorname{Tr}\!\Big(\prod_{r=1}^{k} S_r^T S_r\, A\Big)
+\;=\; \operatorname{Tr}\!\Big(\prod_{r=1}^{k} M_r \Lambda\Big),
+\qquad M_r := U^T S_r^T S_r U .
+\end{equation}
+Write $\Gamma_r := M_r - I$, so that $(\Gamma_r)_{ij} = \langle S_r u_i, S_r u_j\rangle - \delta_{ij}$, and define the \emph{intrinsic dimension}
+\begin{equation}\label{eq:rho-def}
+\rho \;:=\; \frac{\operatorname{Tr}(A)}{\|A\|_2} \;\in\; \big[1,\operatorname{rank}(A)\big].
+\end{equation}
+No probabilistic assumption beyond the following is used. Independence of $S_1,\dots,S_k$ is not required by any proof below; it enters only through the unbiasedness identity $\mathbb{E}[E_k] = \operatorname{Tr}(A^k)$ (valid when $\mathbb{E}[S_r^T S_r] = I$), which is not needed.
+
+\begin{definition}[Embedding property]\label{def:jl}
+$S \in \mathbb{R}^{m\times n}$ has the \emph{$(\epsilon,\delta')$-embedding property} if for every fixed $x \in \mathbb{R}^n$,
+\begin{equation}
+\mathbb{P}\Big( \big|\, \|Sx\|_2^2 - \|x\|_2^2 \,\big| > \epsilon \|x\|_2^2 \Big) \;\le\; \delta'.
+\end{equation}
+By Corollary 3.2 of Ma--Solomonik (arXiv:2205.13163), a Gaussian chain-structured (tensor train) embedding with a single output sketch dimension and all internal dimensions of size $m$ has this property, with $m = \Theta\big( N \log(1/\delta')/\epsilon^2 \big)$ sufficient.
+\end{definition}
+
+\begin{theorem}\label{thm:tracek}
+Let $k \ge 2$, $\hat\epsilon \in (0,1]$, $\delta \in (0,1)$, and let each $S_r$ have the $(\epsilon,\delta')$-embedding property with
+\begin{equation}\label{eq:eps-choice}
+\delta' \;=\; \frac{\delta}{k\, d^{2N}},
+\qquad
+\epsilon \;=\; \min\Big\{ \frac{\hat\epsilon}{2k},\ \frac{1}{k\rho}\sqrt{\hat\epsilon/2} \Big\}.
+\end{equation}
+Then
+\begin{equation}\label{eq:thm-conclusion}
+\mathbb{P}\Big( \big| E_k - \operatorname{Tr}(A^k) \big| \;\le\; \hat\epsilon\, \operatorname{Tr}(A^k) \Big) \;\ge\; 1-\delta .
+\end{equation}
+With the chain-structured sketch of Definition~\ref{def:jl} it therefore suffices to take
+\begin{equation}\label{eq:m-final}
+m \;=\; \Theta\!\left( \max\Big\{ \frac{4k^2}{\hat\epsilon^{2}},\ \frac{2k^2\rho^2}{\hat\epsilon} \Big\} \cdot N\log\frac{k\,d^{2N}}{\delta} \right)
+\;=\; O\!\left( \frac{k^2 \max\{1,\ \rho^2 \hat\epsilon\}}{\hat\epsilon^{2}}\,\big( N^2 \log d + N \log(k/\delta) \big) \right).
+\end{equation}
+\end{theorem}
+
+The proof consists of two lemmas: a two-sided high-probability control of the entries of $\Gamma_r$, and a deterministic deviation inequality that is exact at the level of element-wise information.
+
+\begin{lemma}[Two-sided control of the sketched Gram matrices]\label{lem:gram}
+If each $S_r$ has the $(\epsilon,\delta')$-embedding property, then with probability at least $1 - k\, d^{2N} \delta'$, simultaneously,
+\begin{equation}\label{eq:gram-event}
+\big| (\Gamma_r)_{ij} \big| \;\le\; \epsilon
+\qquad \text{for all } r \in [k],\ i,j \in [n].
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Fix $r$. For $i=j$: $(\Gamma_r)_{ii} = \|S_r u_i\|_2^2 - 1$ and $\|u_i\|_2^2 = 1$, so $|(\Gamma_r)_{ii}| \le \epsilon$ with probability $\ge 1-\delta'$. For $i \neq j$: orthonormality gives $\|u_i \pm u_j\|_2^2 = 2$, and by the polarization identity together with $\langle u_i,u_j\rangle = 0$,
+\begin{align}
+(\Gamma_r)_{ij} \;=\; \langle S_r u_i, S_r u_j \rangle
+&= \tfrac14\Big( \big(\|S_r(u_i+u_j)\|_2^2 - 2\big) \;-\; \big(\|S_r(u_i-u_j)\|_2^2 - 2\big) \Big), \\
+\big|(\Gamma_r)_{ij}\big| &\le \tfrac14\big( 2\epsilon + 2\epsilon \big) \;=\; \epsilon
+\end{align}
+on the intersection of the two embedding events for the fixed vectors $u_i + u_j$ and $u_i - u_j$. Per sketch this is a union over $n + 2\binom{n}{2} = n^2$ fixed vectors; over the $k$ sketches, over $k n^2 = k\, d^{2N}$ events, each of probability at most $\delta'$.
+\end{proof}
+
+\begin{remark}\label{rem:twosided}
+The absolute value in \eqref{eq:gram-event} is essential. The off-diagonal entries of $\Gamma_r$ are signed; a one-sided bound $(M_r)_{ij} \le \delta_{ij} + \epsilon$ controls neither the lower deviation of $E_k$ nor products containing negative factors, since entry-wise monotone replacement fails for signed products. All estimates below use \eqref{eq:gram-event} through the triangle inequality only.
+\end{remark}
+
+\begin{lemma}[Deterministic deviation bound]\label{lem:master}
+Let $\epsilon \ge 0$ and suppose $|(\Gamma_r)_{ij}| \le \epsilon$ for all $r \in [k]$, $i,j \in [n]$. For $\emptyset \neq T = \{r_1 < \dots < r_j\} \subseteq [k]$ set $q_i := r_{i+1} - r_i$ for $1 \le i < j$ and $q_j := k - r_j + r_1$, so that $q_i \ge 1$ and $\sum_{i=1}^{j} q_i = k$. Then
+\begin{equation}\label{eq:master}
+\big| E_k - \operatorname{Tr}(A^k) \big|
+\;\le\;
+\sum_{\emptyset \neq T \subseteq [k]} \epsilon^{|T|} \prod_{i=1}^{|T|} \operatorname{Tr}\!\big(A^{q_i}\big)
+\;\le\;
+\big( \|A\|_2 + \epsilon \operatorname{Tr}(A) \big)^k - \|A\|_2^k ,
+\end{equation}
+and, after dividing by $\operatorname{Tr}(A^k) \ge \|A\|_2^k$,
+\begin{equation}\label{eq:master-rel}
+\frac{\big| E_k - \operatorname{Tr}(A^k) \big|}{\operatorname{Tr}(A^k)}
+\;\le\;
+k\epsilon \;+\; \sum_{j=2}^{k} \binom{k}{j} (\epsilon\rho)^j
+\;\le\;
+k\epsilon + (k\epsilon\rho)^2
+\qquad \text{whenever } k\epsilon\rho \le 1 .
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Insert $M_r = I + \Gamma_r$ into \eqref{eq:Ek-def} and expand multilinearly:
+\begin{equation}\label{eq:expansion}
+E_k \;=\; \operatorname{Tr}\!\Big( \prod_{r=1}^{k} (I + \Gamma_r) \Lambda \Big)
+\;=\; \sum_{T \subseteq [k]} \mathcal{T}_T,
+\qquad
+\mathcal{T}_\emptyset = \operatorname{Tr}(\Lambda^k) = \operatorname{Tr}(A^k).
+\end{equation}
+For $T = \{r_1 < \dots < r_j\}$, collapsing the identity factors merges consecutive powers of $\Lambda$, and cyclicity of the trace places exactly $q_i$ factors of $\Lambda$ between $\Gamma_{r_i}$ and $\Gamma_{r_{i+1}}$:
+\begin{equation}\label{eq:term-index}
+\mathcal{T}_T
+\;=\; \operatorname{Tr}\!\big( \Gamma_{r_1} \Lambda^{q_1} \Gamma_{r_2} \Lambda^{q_2} \cdots \Gamma_{r_j} \Lambda^{q_j} \big)
+\;=\; \sum_{a_1,\dots,a_j = 1}^{n}\ \prod_{i=1}^{j} (\Gamma_{r_i})_{a_i a_{i+1}}\, \lambda_{a_{i+1}}^{\,q_i},
+\qquad a_{j+1} := a_1 .
+\end{equation}
+By the triangle inequality, $|(\Gamma_{r_i})_{a_i a_{i+1}}| \le \epsilon$, $\lambda_a \ge 0$, and the fact that each summation index $a_{i+1}$ occurs in exactly one eigenvalue factor,
+\begin{equation}\label{eq:perterm}
+|\mathcal{T}_T| \;\le\; \epsilon^{j} \sum_{a_1,\dots,a_j=1}^{n} \prod_{i=1}^{j} \lambda_{a_{i+1}}^{\,q_i}
+\;=\; \epsilon^{j} \prod_{i=1}^{j} \Big( \sum_{a=1}^{n} \lambda_a^{\,q_i} \Big)
+\;=\; \epsilon^{j} \prod_{i=1}^{j} \operatorname{Tr}\!\big( A^{q_i} \big).
+\end{equation}
+Summing over $T \neq \emptyset$ yields the first inequality in \eqref{eq:master}. Since $\lambda_a^{\,q} \le \|A\|_2^{\,q-1} \lambda_a$,
+\begin{equation}\label{eq:tr-power}
+\operatorname{Tr}(A^{q}) \;\le\; \|A\|_2^{\,q-1} \operatorname{Tr}(A),
+\qquad \text{hence} \qquad
+\prod_{i=1}^{j} \operatorname{Tr}(A^{q_i}) \;\le\; \|A\|_2^{\,k-j}\, \big(\operatorname{Tr} A\big)^{j},
+\end{equation}
+and there are $\binom{k}{j}$ subsets of size $j$, so the middle term of \eqref{eq:master} is at most
+$\sum_{j=1}^{k} \binom{k}{j} \epsilon^j (\operatorname{Tr} A)^j \|A\|_2^{\,k-j} = (\|A\|_2 + \epsilon\operatorname{Tr} A)^k - \|A\|_2^k$.
+
+For \eqref{eq:master-rel}: if $|T| = 1$ then $q_1 = k$ and \eqref{eq:perterm} reads $|\mathcal{T}_T| \le \epsilon \operatorname{Tr}(A^k)$; there are $k$ such terms. For $j \ge 2$, by \eqref{eq:tr-power} and $\|A\|_2^k \le \operatorname{Tr}(A^k)$,
+\begin{equation}
+\epsilon^{j} \prod_{i=1}^{j} \operatorname{Tr}(A^{q_i})
+\;\le\; (\epsilon\rho)^{j}\, \|A\|_2^{\,k}
+\;\le\; (\epsilon\rho)^{j}\, \operatorname{Tr}(A^k).
+\end{equation}
+Finally, for $x := \epsilon\rho$ with $kx \le 1$,
+\begin{equation}
+\sum_{j=2}^{k} \binom{k}{j} x^j \;=\; (1+x)^k - 1 - kx \;\le\; e^{kx} - 1 - kx \;\le\; (kx)^2 ,
+\end{equation}
+using $e^t \le 1 + t + t^2$ for $t \in [0,1]$.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:tracek}]
+By Lemma~\ref{lem:gram} and the choice $\delta' = \delta/(k d^{2N})$, the event \eqref{eq:gram-event} holds with probability at least $1-\delta$. On this event apply Lemma~\ref{lem:master}: the choice \eqref{eq:eps-choice} gives $k\epsilon \le \hat\epsilon/2$ and $(k\epsilon\rho)^2 \le \hat\epsilon/2 \le 1$ (in particular $k\epsilon\rho \le 1$), hence by \eqref{eq:master-rel}
+\begin{equation}
+\big| E_k - \operatorname{Tr}(A^k) \big| \;\le\; \Big( \frac{\hat\epsilon}{2} + \frac{\hat\epsilon}{2} \Big) \operatorname{Tr}(A^k) \;=\; \hat\epsilon\, \operatorname{Tr}(A^k).
+\end{equation}
+For \eqref{eq:m-final}, substitute \eqref{eq:eps-choice} into $m = \Theta(N\log(1/\delta')/\epsilon^2)$:
+$\epsilon^{-2} = \max\{ 4k^2 \hat\epsilon^{-2},\ 2k^2 \rho^2 \hat\epsilon^{-1} \}$ and $N\log(1/\delta') = N\log(k d^{2N}/\delta) = 2N^2\log d + N\log(k/\delta)$.
+\end{proof}
+
+\begin{remark}[Comparison; consistency at $k=1$; low rank]\label{rem:comparison}
+Since $\operatorname{Tr}(A^k) \le \|A\|_2^{\,k-1}\operatorname{Tr}(A)$, the prefactor of the bound obtained via the majorization $\operatorname{Tr}(A^p) \le (\operatorname{Tr} A)^p$ satisfies
+\begin{equation}
+\frac{(\operatorname{Tr} A)^{2k}}{\big(\operatorname{Tr}(A^k)\big)^2} \;\ge\; \rho^{\,2k-2},
+\end{equation}
+whereas \eqref{eq:m-final} carries $\max\{\hat\epsilon^{-2},\, \rho^2 \hat\epsilon^{-1}\}$; e.g.\ for $A$ a rank-$r$ orthogonal projection the respective prefactors are $r^{2k-2}\hat\epsilon^{-2}$ versus $\max\{\hat\epsilon^{-2}, r^{2}\hat\epsilon^{-1}\}$. At $k=1$ the expansion \eqref{eq:expansion} contains only the $j=1$ term, \eqref{eq:master-rel} degenerates to $|E_1 - \operatorname{Tr} A| \le \epsilon \operatorname{Tr}(A)$, and Theorem~\ref{thm:k1} is recovered with no $\rho$-dependence. If $\operatorname{rank}(A) = r$ is known, every index $a$ with $\lambda_a = 0$ drops out of \eqref{eq:term-index} (each $a_i$ carries a strictly positive power of $\lambda_{a_i}$), so Lemma~\ref{lem:gram} is needed only on the $r$ eigenvectors spanning $\operatorname{range}(A)$; replacing $d^{2N}$ by $r^2$ in $\delta'$ replaces $N^2 \log d$ by $N \log r$ in \eqref{eq:m-final}.
+\end{remark}
+
+\begin{remark}[Tightness within element-wise control; beyond it]\label{rem:tight}
+Inequality \eqref{eq:perterm} is attained, simultaneously for every $T$, by $\Gamma_r = \epsilon \mathbf{1}\mathbf{1}^T$: with $J = \mathbf{1}\mathbf{1}^T$,
+\begin{equation}
+\operatorname{Tr}\big( J \Lambda^{q_1} J \Lambda^{q_2} \cdots J \Lambda^{q_j} \big)
+= \prod_{i=1}^{j} \mathbf{1}^T \Lambda^{q_i} \mathbf{1}
+= \prod_{i=1}^{j} \operatorname{Tr}\!\big(A^{q_i}\big),
+\end{equation}
+so the first inequality in \eqref{eq:master} holds with equality and Lemma~\ref{lem:master} cannot be improved given only \eqref{eq:gram-event}. The $\rho^2 \hat\epsilon^{-1}$ term in \eqref{eq:m-final} is likewise unavoidable in this paradigm: for $k=2$ and the spiked spectrum $\lambda = (1,\mu,\dots,\mu)$ with $n\mu \to \infty$ and $n\mu^2 \to 0$ (e.g.\ $\mu = n^{-3/4}$), the $j=2$ term equals $\epsilon^2 (\operatorname{Tr} A)^2 = (1+o(1))\, \epsilon^2 \rho^2\, \operatorname{Tr}(A^2)$, forcing $\epsilon \lesssim \sqrt{\hat\epsilon}/\rho$. Improving on Theorem~\ref{thm:tracek} therefore requires information about $S^T S$ finer than element-wise control of its Gram action --- i.e.\ moment information. For i.i.d.\ sketches the exact second moment is
+\begin{equation}\label{eq:second-moment}
+\mathbb{E}\big[E_k^2\big] \;=\; \operatorname{Tr}\!\Big( \big( M\,(A \otimes A) \big)^{k} \Big),
+\qquad
+M := \mathbb{E}\big[ S^T S \otimes S^T S \big],
+\end{equation}
+so Chebyshev's inequality applied to $\operatorname{Var}(E_k) = \operatorname{Tr}\big((M(A\otimes A))^k\big) - \operatorname{Tr}(A^k)^2$ --- the quantity computed by the transfer-matrix analysis of $M$ --- yields sample complexities that are instance-optimal at second order, at the price of polynomial (rather than logarithmic) dependence on $1/\delta$.
+\end{remark}
+
+\begin{remark}[Relation to the OSI framework of arXiv:2508.21189]\label{rem:osi}
+Cama\~no--Epperly--Meyer--Tropp define an $(r,\alpha)$-\emph{oblivious subspace injection} (OSI) by isotropy, $\mathbb{E}\|\Omega^* x\|_2^2 = \|x\|_2^2$, together with injectivity: $\sigma_{\min}^2(\Omega^* Q) \ge \alpha$ with probability $19/20$ for every fixed orthonormal $Q \in \mathbb{R}^{n \times r}$ --- a one-sided \emph{lower} bound with deliberately uncontrolled dilation. The failure mode of $E_k$ is the opposite tail (inflation of the trace through dilation of sketched inner products), so the OSI property alone cannot produce the two-sided guarantee \eqref{eq:thm-conclusion}. Consistently, their trace-estimation application (\S6.2, partition functions) controls error through the estimator's second moment (variance-reduced Girard--Hutchinson with Khatri--Rao probes) combined with OSI-based low-rank deflation --- in the present setting, precisely the route \eqref{eq:second-moment}. One ingredient does transfer: their fourth-moment OSI criterion (\S7.1, after Oliveira) requires $\sup_{\|u\|_2 = 1} \mathbb{E}\|S u\|_2^4 \le h$, and under the isotropic normalization $\mathbb{E}[S^T S] = I$,
+\begin{equation}
+\sup_{\|u\|_2=1} \mathbb{E}\,\|S u\|_2^4
+\;=\; \sup_{\|u\|_2=1}\ (u \otimes u)^T M\, (u \otimes u)
+\;\le\; \|M\|_2 \;=\; R(E^N),
+\end{equation}
+so the closed form for the maximal row sum $R(E^N)$ certifies the fourth-moment hypothesis (with $h = R(E^N)$), hence the OSI parameters of the chain sketch --- useful for low-rank approximation corollaries, but yielding no improvement to \eqref{eq:m-final}.
+\end{remark}
+
+\subsection{Numerical Verification at $k=3$}\label{sec:numerics}
+
+\paragraph{Setup.}
+All experiments use the chain sketch with i.i.d.\ \emph{Rademacher} cores, entries uniform on $\{\pm m^{-1/2}\}$, all bond dimensions equal to $m$ and one output leg of size $m$, so that $\mathbb{E}[S^TS]=I_{d^N}$ exactly. Rademacher cores realize $\sigma_4=\sigma_2^2$, the minimum permitted by Jensen's inequality; the sufficiency proof behind Definition~\ref{def:jl} is unchanged, since each linearized core is a dense i.i.d.\ subgaussian matrix and therefore satisfies the strong JL-moment hypothesis entering Theorem~3.1 of Ma--Solomonik with the same scaling (Achlioptas 2003; Kane--Nelson 2014). Gaussian cores reproduce all shapes below with larger constants, e.g.\ $q_{0.9}=0.54$ vs.\ $0.44$ at $(N,m,k)=(6,64,3)$, $A=I$.
+
+The estimator is evaluated by exact tensor-network contraction; no $d^N$-sized object is ever formed. With $B_{rs}:=S_rS_s^T\in\mathbb{R}^{m\times m}$ computed by transfer steps of cost $O(dm^3)$ per site,
+\begin{equation}
+A=I_{d^N}:\quad E_3=\operatorname{Tr}(B_{12}B_{23}B_{31}),\qquad
+A=\mathbf{1}\mathbf{1}^T:\quad E_k=\prod_{r=1}^k\|S_r\mathbf{1}\|_2^2,
+\end{equation}
+where $\|S\mathbf{1}\|_2^2$ is a length-$N$ vector--MPS contraction; both test matrices are bond-dimension-$1$ MPOs with $\operatorname{Tr}(I^k)=d^N$, $\rho(I)=d^N$ (flat extreme) and $\operatorname{Tr}\big((\mathbf{1}\mathbf{1}^T)^k\big)=d^{Nk}$, $\rho(\mathbf{1}\mathbf{1}^T)=1$ (rank-one extreme). The total cost is $O(kNdm^3)$ per draw. The implementation is validated against a dense computation built from the \emph{same} random cores at $N=3$ (agreement to machine precision for $k\in\{1,2,3\}$ and both test matrices, as well as for the spiked interpolation $\mu I+(1-\mu)P$ available in the code), and against $\mathbb{E}[E_1]=\operatorname{Tr}(A)$. Code: \texttt{verify\_m\_k3.py}, fixed seeds.
+
+\paragraph{Protocol.}
+$q_{0.9}(m)$ denotes the empirical $0.9$-quantile of $|E_k/\operatorname{Tr}(A^k)-1|$ over $96$--$240$ independent draws (matching $\delta=0.1$), and
+\begin{equation}
+m^*(N)\;:=\;\min\{m\ \text{on the grid}\ \le 512:\ q_{0.9}(m)\le\hat\epsilon\},\qquad \hat\epsilon=0.2 ,
+\end{equation}
+with censoring reported when the cap is reached. Quantile noise at these sample sizes is $\pm 10$--$15\%$, so $m^*$ is resolved to within one (geometric) grid step.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=.62\linewidth]{fig_err_vs_m.pdf}
+\caption{Relative-error quantile vs.\ sketch size at $d=2$, $N=6$. (i) $k$-dependence on $A=I$: at $m=64$, $q_{0.9}=0.19,\,0.32,\,0.41$ for $k=1,2,3$ --- the near-linear growth of the leading $j=1$ term $k\epsilon$ of Lemma~\ref{lem:master}; at small $m$ the $k=3$ curve detaches strongly ($q_{0.9}=4.5$ at $m=4$ vs.\ $0.71$ for $k=1$), the onset of the $j\ge2$ terms. (ii) All curves decay $\asymp m^{-1/2}$, i.e.\ $\epsilon=\Theta(\sqrt{N\log(1/\delta')/m})$, the Ma--Solomonik rate. (iii) The rank-one MPO is \emph{uniformly harder} than the identity at equal $m$: $E_k/\operatorname{Tr}(A^k)=\prod_r\|S_r\mathbf{1}\|_2^2/d^N$ is a pure single-vector embedding problem with no self-averaging. The plateau $q_{0.9}=1.000$ for $m\le8$ is exact annihilation: at $d=2$ the per-site contraction of a $\pm1$ core with $\mathbf{1}_2$ has entries $\xi+\xi'\in\{-2,0,2\}$, zero with probability $1/2$, so typical draws give $E_k\approx0$ --- the all-ones vector is the adversarial direction for Rademacher entries (cf.\ the Rademacher Khatri--Rao failure mode in arXiv:2508.21189, \S5.3).}
+\label{fig:errvsm}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=.62\linewidth]{fig_mstar.pdf}
+\caption{Required sketch size $m^*(\hat\epsilon=0.2,\delta=0.1)$ vs.\ $N$ at $d=2$, $k=3$ (and $k=1$ control). Measured $m^*$ for $A=I$ is flat in $N$ over the accessible range; the rank-one case is censored ($>512$) for $N\ge3$, consistent with the branch-1 shape $\propto N\log(k d^{2N}/\delta)$ anchored at $N=2$ (dotted). The theorem envelope for $A=I$ (dashed, $\propto\rho^2 N^2$-type, anchored from above) majorizes every measurement, as it must.}
+\label{fig:mstar}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{l|cccccc}
+$N$ & 2 & 3 & 4 & 5 & 6 & 7\\\hline
+$m^*$, $A=I$, $k=3$ & 128 & 256 & 192 & 192 & 256 & 256\\
+$m^*$, $A=I$, $k=1$ & 48 & 64 & 64 & 96 & 64 & 96\\
+$m^*$, $A=\mathbf{1}\mathbf{1}^T$, $k=3$ & 512 & $>512$ & $>512$ & $>512$ & $>512$ & $>512$
+\end{tabular}
+\end{center}
+
+\paragraph{Sufficiency accounting.}
+At $(\hat\epsilon,\delta,k)=(0.2,0.1,3)$ the prescription \eqref{eq:eps-choice}--\eqref{eq:m-final} reads: for $\rho=1$ (rank one), $\epsilon=\hat\epsilon/2k=1/30$ and $m=\Theta\big(900\cdot N\log(kd^{2N}/\delta)\big)\approx\Theta(1.1\cdot10^{4})$ at $N=2$; for $A=I$ at $N=6$ ($\rho=64$), $\epsilon=\sqrt{\hat\epsilon/2}/(k\rho)\approx1.6\cdot10^{-3}$ and $m\approx\Theta(2.6\cdot10^{7})$. Every measured $m^*$ lies \emph{below} the corresponding prescription, by a factor $\approx20$ in the rank-one case and up to $\approx10^{5}$ at the flat extreme: the theorem is never violated, and the slack sits exactly where Remark~\ref{rem:tight} locates it. The empirically binding regime is branch~1 (per-vector embedding accuracy, with the sketch's true constants): the rank-one instances ride it and exhaust the grid. The $\rho^{2}\hat\epsilon^{-1}$ branch is the price of \emph{adversarial} Gram perturbations consistent with element-wise control; the typical randomness of the sketch does not realize it at $A=I$, because the trace self-averages over the $d^N$ eigendirections --- the flat $m^*(N)$ in Fig.~\ref{fig:mstar} quantifies this within $N\le7$. Consequently, the gap between $m^*$ and \eqref{eq:m-final} for flat spectra is not closable by a sharper union bound; it is the second moment \eqref{eq:second-moment} that prices typical draws. What the numerics cannot certify are the $\Theta$-constants inherited from Ma--Solomonik and the behaviour beyond $N=7$; no claim is made there.
+
+\end{document}

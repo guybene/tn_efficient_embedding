@@ -1,0 +1,256 @@
+# All bib entries I added this session
+
+Two groups. **Group 1** = added recently for the MPO-case rewrite — most likely
+missing from your Overleaf `refs.bib`. **Group 2** = the original baseline I
+created at the start (your Overleaf bib grew from it — verify they exist, skip
+if present). Keys you added yourself (`camano2025src`, `hubig2017mpo`) are not
+listed here.
+
+## Group 1 — added for the MPO-case section (8 entries)
+
+```bibtex
+@article{vidal2003,
+  author  = {Vidal, Guifr\'e},
+  title   = {Efficient Classical Simulation of Slightly Entangled Quantum Computations},
+  journal = {Physical Review Letters},
+  volume  = {91},
+  number  = {14},
+  pages   = {147902},
+  year    = {2003},
+}
+
+@article{eisert2010area,
+  author  = {Eisert, Jens and Cramer, Marcus and Plenio, Martin B.},
+  title   = {Colloquium: Area laws for the entanglement entropy},
+  journal = {Reviews of Modern Physics},
+  volume  = {82},
+  number  = {1},
+  pages   = {277--306},
+  year    = {2010},
+}
+
+@article{schollwock2011,
+  author  = {Schollw\"ock, Ulrich},
+  title   = {The density-matrix renormalization group in the age of matrix product states},
+  journal = {Annals of Physics},
+  volume  = {326},
+  number  = {1},
+  pages   = {96--192},
+  year    = {2011},
+}
+
+@article{orus2014,
+  author  = {Or\'us, Rom\'an},
+  title   = {A practical introduction to tensor networks: Matrix product states and projected entangled pair states},
+  journal = {Annals of Physics},
+  volume  = {349},
+  pages   = {117--158},
+  year    = {2014},
+}
+
+@article{camano2026exp,
+  author  = {Cama\~no, Chris and Epperly, Ethan N. and Meyer, Raphael A. and Tropp, Joel A.},
+  title   = {Linear algebra at exponential scale via tensor network dimension reduction},
+  journal = {arXiv preprint arXiv:2606.15350},
+  year    = {2026},
+}
+
+@article{brydges2019probing,
+  author  = {Brydges, Tiff and Elben, Andreas and Jurcevic, Petar and Vermersch, Beno\^it and Maier, Christine and Lanyon, Ben P. and Zoller, Peter and Blatt, Rainer and Roos, Christian F.},
+  title   = {Probing R\'enyi entanglement entropy via randomized measurements},
+  journal = {Science},
+  volume  = {364},
+  number  = {6437},
+  pages   = {260--263},
+  year    = {2019},
+}
+
+@article{huang2020predicting,
+  author  = {Huang, Hsin-Yuan and Kueng, Richard and Preskill, John},
+  title   = {Predicting many properties of a quantum system from very few measurements},
+  journal = {Nature Physics},
+  volume  = {16},
+  pages   = {1050--1057},
+  year    = {2020},
+}
+
+@article{headrick2010renyi,
+  author  = {Headrick, Matthew},
+  title   = {Entanglement R\'enyi entropies in holographic theories},
+  journal = {Physical Review D},
+  volume  = {82},
+  number  = {12},
+  pages   = {126010},
+  year    = {2010},
+}
+```
+
+## Group 2 — original baseline (18 entries; verify present, skip if so)
+
+```bibtex
+@inproceedings{masolomonik2022,
+  author    = {Ma, Linjian and Solomonik, Edgar},
+  title     = {Cost-efficient {G}aussian Tensor Network Embeddings for Tensor-structured Inputs},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {35},
+  pages     = {38980--38993},
+  year      = {2022},
+  note      = {arXiv:2205.13163},
+}
+
+@article{cazeaux2026linear,
+  author  = {Cazeaux, Paul and Dupuy, Mi-Song and Figueroa Justiniano, Rodrigo},
+  title   = {Linear-scaling Tensor Train Sketching},
+  journal = {arXiv preprint arXiv:2603.11009},
+  year    = {2026},
+}
+
+@article{bujanovic2026tt,
+  author  = {Bujanovi\'c, Zvonimir and Kressner, Daniel and Oli\'c, Hrvoje},
+  title   = {Stochastic trace estimation with tensor train random vectors},
+  journal = {arXiv preprint arXiv:2606.15679},
+  year    = {2026},
+}
+
+@article{rakhshan2021rademacher,
+  author  = {Rakhshan, Beheshteh T. and Rabusseau, Guillaume},
+  title   = {Rademacher Random Projections with Tensor Networks},
+  journal = {Second Workshop on Quantum Tensor Networks in Machine Learning (NeurIPS)},
+  year    = {2021},
+  note    = {arXiv:2110.13970},
+}
+
+@inproceedings{rakhshan2020tensorized,
+  author    = {Rakhshan, Beheshteh T. and Rabusseau, Guillaume},
+  title     = {Tensorized Random Projections},
+  booktitle = {International Conference on Artificial Intelligence and Statistics (AISTATS)},
+  pages     = {3306--3316},
+  year      = {2020},
+}
+
+@article{meyer2026kronecker,
+  author  = {Meyer, Raphael A. and Avron, Haim},
+  title   = {Hutchinson's Estimator is Bad at {K}ronecker-Trace-Estimation},
+  journal = {SIAM Journal on Matrix Analysis and Applications},
+  volume  = {47},
+  number  = {1},
+  pages   = {353--387},
+  year    = {2026},
+  note    = {arXiv:2309.04952},
+}
+
+@article{bujanovic2021rankone,
+  author  = {Bujanovi\'c, Zvonimir and Kressner, Daniel},
+  title   = {Norm and Trace Estimation with Random Rank-one Vectors},
+  journal = {SIAM Journal on Matrix Analysis and Applications},
+  volume  = {42},
+  number  = {1},
+  pages   = {202--223},
+  year    = {2021},
+}
+
+@article{feldman2022entanglement,
+  author  = {Feldman, Noa and Kshetrimayum, Augustine and Eisert, Jens and Goldstein, Moshe},
+  title   = {Entanglement estimation in tensor network states via sampling},
+  journal = {PRX Quantum},
+  volume  = {3},
+  number  = {3},
+  pages   = {030312},
+  year    = {2022},
+  note    = {arXiv:2202.04089},
+}
+
+@article{verstraete2004MPO,
+  author  = {Verstraete, F. and Garc\'ia-Ripoll, J. J. and Cirac, J. I.},
+  title   = {Matrix Product Density Operators: Simulation of Finite-Temperature and Dissipative Systems},
+  journal = {Physical Review Letters},
+  volume  = {93},
+  number  = {20},
+  pages   = {207204},
+  year    = {2004},
+}
+
+@article{oseledets2011tt,
+  author  = {Oseledets, I. V.},
+  title   = {Tensor-Train Decomposition},
+  journal = {SIAM Journal on Scientific Computing},
+  volume  = {33},
+  number  = {5},
+  pages   = {2295--2317},
+  year    = {2011},
+}
+
+@article{hutchinson1989,
+  author  = {Hutchinson, M. F.},
+  title   = {A stochastic estimator of the trace of the influence matrix for {L}aplacian smoothing splines},
+  journal = {Communications in Statistics -- Simulation and Computation},
+  volume  = {18},
+  number  = {3},
+  pages   = {1059--1076},
+  year    = {1989},
+}
+
+@article{girard1989,
+  author  = {Girard, Didier A.},
+  title   = {A fast ``{M}onte-Carlo cross-validation'' procedure for large least squares problems with noisy data},
+  journal = {Numerische Mathematik},
+  volume  = {56},
+  number  = {1},
+  pages   = {1--23},
+  year    = {1989},
+}
+
+@inproceedings{meyer2021hutchpp,
+  author    = {Meyer, Raphael A. and Musco, Cameron and Musco, Christopher and Woodruff, David P.},
+  title     = {{Hutch++}: Optimal Stochastic Trace Estimation},
+  booktitle = {Symposium on Simplicity in Algorithms (SOSA)},
+  pages     = {142--155},
+  year      = {2021},
+}
+
+@article{persson2022nystrompp,
+  author  = {Persson, David and Cortinovis, Alice and Kressner, Daniel},
+  title   = {Improved variants of the {H}utch++ algorithm for trace estimation},
+  journal = {SIAM Journal on Matrix Analysis and Applications},
+  volume  = {43},
+  number  = {3},
+  pages   = {1162--1185},
+  year    = {2022},
+}
+
+@article{camano2025osi,
+  author  = {Cama\~no, Chris and Epperly, Ethan N. and Meyer, Raphael A. and Tropp, Joel A.},
+  title   = {Faster linear algebra algorithms with structured random matrices},
+  journal = {arXiv preprint arXiv:2508.21189},
+  year    = {2025},
+}
+
+@article{johnson1984,
+  author  = {Johnson, William B. and Lindenstrauss, Joram},
+  title   = {Extensions of {L}ipschitz mappings into a {H}ilbert space},
+  journal = {Contemporary Mathematics},
+  volume  = {26},
+  pages   = {189--206},
+  year    = {1984},
+}
+
+@article{achlioptas2003,
+  author  = {Achlioptas, Dimitris},
+  title   = {Database-friendly random projections: {J}ohnson-{L}indenstrauss with binary coins},
+  journal = {Journal of Computer and System Sciences},
+  volume  = {66},
+  number  = {4},
+  pages   = {671--687},
+  year    = {2003},
+}
+
+@article{kanenelson2014,
+  author  = {Kane, Daniel M. and Nelson, Jelani},
+  title   = {Sparser {J}ohnson-{L}indenstrauss Transforms},
+  journal = {Journal of the ACM},
+  volume  = {61},
+  number  = {1},
+  pages   = {1--23},
+  year    = {2014},
+}
+```

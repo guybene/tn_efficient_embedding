@@ -1,0 +1,439 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass heb-article
+\begin_preamble
+\usepackage{culmus}
+
+% Convert the Lyx colors into more pleasent colors:
+\usepackage{xcolor}
+\definecolor{blue}{RGB}{14,107,217}
+\definecolor{green}{RGB}{0,158,40}
+\definecolor{red}{RGB}{235,16,16}
+\definecolor{brown}{RGB}{164,66,0}
+\definecolor{orange}{RGB}{231,135,26}
+\definecolor{purple}{RGB}{94,53,177}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language hebrew
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize 12
+\spacing onehalf
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date true
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 1cm
+\topmargin 2cm
+\rightmargin 1cm
+\bottommargin 3cm
+\headheight 0cm
+\headsep 0cm
+\footskip 2cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation 0bp
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset Box Doublebox
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "100col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Title
+הוכחת למה 
+\begin_inset Formula $1$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\R}{\mathbb{R}}
+{\mathbb{R}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\N}{\mathbb{N}}
+{\mathbb{N}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\BB}{\mathcal{B}}
+{\mathcal{B}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\Q}{\mathbb{Q}}
+{\mathbb{Q}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\Z}{\mathbb{Z}}
+{\mathbb{Z}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\newcommand{\C}{\mathbb{C}}
+{\mathbb{C}}
+\end_inset
+
+
+\begin_inset FormulaMacro
+\renewcommand{\O}{\Omega}
+{\Omega}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+למה
+\family roman
+\series bold
+\shape up
+\size larger
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+ 
+\family default
+\series default
+\shape default
+\size default
+\emph default
+\numeric on
+\bar default
+\strikeout default
+\xout default
+\uuline default
+\uwave default
+\noun default
+\color inherit
+1
+\end_layout
+
+\begin_layout Standard
+בהינתן 
+\begin_inset Formula $A\in\R^{n\times n}$
+\end_inset
+
+ מטריצה סימטרית אי שלילית ו
+\begin_inset Formula $S\in\R^{m\times n}$
+\end_inset
+
+ עבור 
+\begin_inset Formula $m\le n$
+\end_inset
+
+ כך שלכל 
+\begin_inset Formula $x\in range(A)$
+\end_inset
+
+ מתקיים כי 
+\begin_inset Formula 
+\[
+(1-\varepsilon)\|x\|_{2}\le\|Sx\|_{2}\le(1+\varepsilon)\|x\|_{2}
+\]
+
+\end_inset
+
+ אזי 
+\begin_inset Formula 
+\[
+(1-\varepsilon)Tr(A)\le Tr(SAS^{T})\le(1+\varepsilon)Tr(A)
+\]
+
+\end_inset
+
+ 
+\series bold
+הוכחה
+\end_layout
+
+\begin_layout Standard
+הואיל ו 
+\begin_inset Formula $A$
+\end_inset
+
+ היא 
+\begin_inset Formula $PSD$
+\end_inset
+
+ אזי מתקיים 
+\begin_inset Formula 
+\[
+A=QDQ^{T}
+\]
+
+\end_inset
+
+ עבור 
+\begin_inset Formula $Q$
+\end_inset
+
+ שעמודותייה הן וקטורים עצמאיים של 
+\begin_inset Formula $A$
+\end_inset
+
+ ו
+\begin_inset Formula $D$
+\end_inset
+
+ אלכסונית עם 
+\begin_inset Formula $D_{ii}=\lambda_{i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+כמו כן באותם סימונים נקבל כי 
+\begin_inset Formula 
+\[
+A=QD^{1/2}D^{1/2}Q^{T}
+\]
+
+\end_inset
+
+ ואז עבור 
+\begin_inset Formula $B=QD^{1/2}$
+\end_inset
+
+ נקבל כי 
+\begin_inset Formula $A=B\cdot B^{T}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+כעת נזכור כי 
+\begin_inset Formula 
+\[
+Tr(C\cdot C^{T})=\|C\|_{F}^{2}
+\]
+
+\end_inset
+
+ אם כך נקבל כי 
+\begin_inset Formula 
+\[
+Tr(SAS^{T})=Tr(SB\cdot B^{T}S^{T})=Tr(SB\cdot(SB)^{T})=\|SB\|_{F}^{2}
+\]
+
+\end_inset
+
+ובאותה מידה
+\begin_inset Formula 
+\[
+Tr(A)=\|B\|_{F}^{2}
+\]
+
+\end_inset
+
+ אז רק נראה כי 
+\begin_inset Formula 
+\[
+\|SB\|_{F}^{2}=\|B\|_{F}^{2}
+\]
+
+\end_inset
+
+ בשביל לקבל את הדרוש.
+ 
+\end_layout
+
+\begin_layout Standard
+נשים לב כי 
+\begin_inset Formula $B=QD^{1/2}$
+\end_inset
+
+ כלומר אם נסמן את הוקטורים העצמאיים של 
+\begin_inset Formula $A$
+\end_inset
+
+ עם 
+\begin_inset Formula $v_{1},...,v_{n}$
+\end_inset
+
+ אז נקבל כי 
+\begin_inset Formula 
+\[
+QD^{1/2}=\begin{bmatrix}| & | &  & |\\
+\sqrt{\lambda_{1}}v_{1} & \sqrt{\lambda_{2}}v_{2} & ... & \sqrt{\lambda_{v}}v_{n}\\
+| & | &  & |
+\end{bmatrix}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+ואז 
+\begin_inset Formula 
+\[
+SQD^{1/2}=\begin{bmatrix}| & | &  & |\\
+S\sqrt{\lambda_{1}}v_{1} & S\sqrt{\lambda_{2}}v_{2} & ... & S\sqrt{\lambda_{v}}v_{n}\\
+| & | &  & |
+\end{bmatrix}
+\]
+
+\end_inset
+
+ ולכן נקבל כי 
+\begin_inset Formula 
+\begin{align*}
+\|SB\|_{F}^{2} & =\sum_{i,j}(SB)_{ij}^{2}\\
+ & =\sum_{i=1}^{n}\|S\sqrt{\lambda_{i}}v_{i}\|_{2}^{2}\\
+ & =\sum_{i=1}^{n}\lambda_{i}\|Sv_{i}\|_{2}^{2}\\
+ & \le_{*}\sum_{i=1}^{n}\lambda_{i}(1+\varepsilon)^{2}\|v_{i}\|_{2}^{2}\\
+ & =\sum_{i=1}^{n}(1+\varepsilon)^{2}\|\sqrt{\lambda}_{i}v_{i}\|_{2}^{2}\\
+ & =(1+\varepsilon)^{2}\sum_{i=1}^{n}\|\sqrt{\lambda_{i}}v_{i}\|_{2}^{2}\\
+ & =(1+\varepsilon)^{2}\cdot\|B\|_{F}^{2}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+כאשר 
+\begin_inset Formula $*$
+\end_inset
+
+ הוא מהנתון שיש לנו על 
+\begin_inset Formula $S$
+\end_inset
+
+ וכי 
+\begin_inset Formula $v_{i}$
+\end_inset
+
+ הוא ו
+\begin_inset Quotes erd
+\end_inset
+
+ע בפרט הוא בתמונה של 
+\begin_inset Formula $A$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+ולכן 
+\begin_inset Formula 
+\[
+\|SB\|_{F}\le(1+\varepsilon)\|B\|_{F}
+\]
+
+\end_inset
+
+באותו אופן מראים עבור 
+\begin_inset Formula 
+\[
+\|SB\|_{F}\ge(1-\varepsilon)\|B\|_{F}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

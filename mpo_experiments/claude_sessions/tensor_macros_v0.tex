@@ -1,0 +1,145 @@
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+
+\newcommand{\si}{\mathrm{i}}
+\newcommand{\rpart}{\mathop{\mathrm{Re}}}
+\newcommand{\ipart}{\mathop{\mathrm{Im}}}
+
+% Top operators on matrices and scalars
+\newcommand{\T}{\textsc{T}}
+\newcommand{\pinv}{+}
+\newcommand{\winv}{-}
+\newcommand{\ha}{\textsc{H}}
+\newcommand{\sconj}{*}
+\newcommand{\adj}{*}
+
+% Other matrix products
+\newcommand{\kronprod}{\otimes}
+\newcommand{\hadprod}{\bullet}
+
+% Norms and inner products
+\newcommand{\inner}[2]{\left\langle #1,#2 \right\rangle}
+\newcommand{\dotprod}[2]{#1\cdot #2}
+\newcommand{\Xnorm}[2]{\left\| #1 \right\|_{#2}}
+\newcommand{\Fnorm}[1]{\Xnorm{#1}{F}}
+\newcommand{\Tnorm}[1]{\Xnorm{#1}{2}}
+\newcommand{\XnormS}[2]{\left\| #1 \right\|^2_{#2}}
+\newcommand{\FnormS}[1]{\XnormS{#1}{F}}
+\newcommand{\TnormS}[1]{\XnormS{#1}{2}}
+
+\newcommand{\reshape}{\mathop{\mathrm{reshape}}}
+\newcommand{\rank}{\mathop{\mathrm{rank}}}
+\newcommand{\diag}{\mathop{\mathrm{diag}}}
+\newcommand{\trace}{\mathop{\mathrm{Tr}}}
+\newcommand{\vectorize}{\mathop{\mathrm{vec}}}
+
+% Modifiers for vector, matrix and tensor
+\renewcommand{\vec}[1]{\mathbf{\boldsymbol{#1}}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+\newcommand{\ten}[1]{\mathcal{#1}}
+
+% Vector symbols
+\newcommand{\va}{\vec{a}}
+\newcommand{\vb}{\vec{b}}
+\newcommand{\vc}{\vec{c}}
+\newcommand{\vd}{\vec{d}}
+\newcommand{\ve}{\vec{e}}
+\newcommand{\vi}{\vec{i}}
+\newcommand{\vr}{\vec{r}}
+\newcommand{\vs}{\vec{s}}
+\newcommand{\vt}{\vec{t}}
+\newcommand{\vq}{\vec{q}}
+\newcommand{\vu}{\vec{u}}
+\newcommand{\vv}{\vec{v}}
+\newcommand{\vw}{\vec{w}}
+\newcommand{\vx}{\vec{x}}
+\newcommand{\vy}{\vec{y}}
+\newcommand{\vz}{\vec{z}}
+
+\newcommand{\vzero}{\vec{0}}
+\newcommand{\valpha}{\vec{\alpha}}
+\newcommand{\vbeta}{\vec{\beta}}
+\newcommand{\vgamma}{\vec{\gamma}}
+\newcommand{\vtheta}{\vec{\theta}}
+\newcommand{\veta}{\vec{\eta}}
+\newcommand{\vxi}{\vec{\xi}}
+\newcommand{\vsigma}{\vec{\sigma}}
+\newcommand{\vlambda}{\vec{\lambda}}
+\newcommand{\vrho}{\vec{\rho}}
+\newcommand{\vpsi}{\vec{\psi}}
+\newcommand{\vphi}{\vec{\phi}}
+
+% Matrix symbols
+\newcommand{\matA}{\mat{A}}
+\newcommand{\matB}{\mat{B}}
+\newcommand{\matC}{\mat{C}}
+\newcommand{\matD}{\mat{D}}
+\newcommand{\matE}{\mat{E}}
+\newcommand{\matF}{\mat{F}}
+\newcommand{\matG}{\mat{G}}
+\newcommand{\matH}{\mat{H}}
+\newcommand{\matK}{\mat{K}}
+\newcommand{\matM}{\mat{M}}
+\newcommand{\matN}{\mat{N}}
+\newcommand{\matO}{\mat{O}}
+\newcommand{\matP}{\mat{P}}
+\newcommand{\matQ}{\mat{Q}}
+\newcommand{\matR}{\mat{R}}
+\newcommand{\matS}{\mat{S}}
+\newcommand{\matT}{\mat{T}}
+\newcommand{\matI}{\mat{I}}
+\newcommand{\matJ}{\mat{J}}
+\newcommand{\matU}{\mat{U}}
+\newcommand{\matV}{\mat{V}}
+\newcommand{\matW}{\mat{W}}
+\newcommand{\matX}{\mat{X}}
+\newcommand{\matY}{\mat{Y}}
+\newcommand{\matZ}{\mat{Z}}
+
+\newcommand{\matSigma}{\mat{\Sigma}}
+\newcommand{\matPi}{\mat{\Pi}}
+\newcommand{\matLambda}{\mat{\Lambda}}
+\newcommand{\matTheta}{\mat{\Theta}}
+
+\newcommand{\matZero}{\mat{0}}
+\newcommand{\matOnes}{\mat{1}}
+
+% Tensor symbols
+\newcommand{\tenA}{\ten{A}}
+\newcommand{\tenB}{\ten{B}}
+\newcommand{\tenC}{\ten{C}}
+\newcommand{\tenD}{\ten{D}}
+\newcommand{\tenE}{\ten{E}}
+\newcommand{\tenI}{\ten{I}}
+\newcommand{\tenU}{\ten{U}}
+\newcommand{\tenV}{\ten{V}}
+\newcommand{\tenS}{\ten{S}}
+\newcommand{\tenX}{\ten{X}}
+\newcommand{\tenY}{\ten{Y}}
+\newcommand{\tenZ}{\ten{Z}}
+\newcommand{\tenT}{\ten{T}}
+
+% General tensor algebra
+\newcommand{\squeeze}{\mathop{\mathrm{squeeze}}}
+\newcommand{\twist}{\mathop{\mathrm{twist}}}
+\newcommand{\fold}{\mathop{\mathrm{fold}}}
+\newcommand{\unfold}{\mathop{\mathrm{unfold}}}
+\newcommand{\nmodeprod}[1]{\times_{#1}}
+\newcommand{\vnmodeprod}[1]{\bar{\times}_{#1}}
+\newcommand{\modesplit}[2]{#1_{[#2]}}
+\newcommand{\contract}[2]{\mathop{\mathrm{Tr}_{#1,#2}}}
+\newcommand{\faceprod}{\Delta}
+\newcommand{\ctrprod}{\bowtie}
+\newcommand{\outprod}{\circ}
+
+% Tubal tensor algebra
+\newcommand{\tprod}{\star_{\text{t}}}
+\newcommand{\Mprod}{\star_{\matM}}
+\newcommand{\Mleq}{\leq_{\matM}}
+\newcommand{\Mgeq}{\geq_{\matM}}
+\newcommand{\unitM}{\ve_{\matM}}
+\newcommand{\KM}{{\mathbb{K}}_{\matM}}
+\newcommand{\Mdot}{{\cdot}_{\matM}}
