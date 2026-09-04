@@ -90,6 +90,10 @@ CONFIG = {
     # comparison
     "algos": ["tree", "kron", "tt_capped"],
     "tt_R_list": [2, 4],       # TT-probe bonds tried (capped at 4); cheapest pass kept
+    "tree_m_list": [2, 4, 8, 16, 32],  # our sketch sizes tried: each runs with its own
+                               # min averaging batch M; the cheapest (m, M) is kept --
+                               # the theorem's single-shot m* is NOT the cost-optimal
+                               # operating point, so the comparison must not use it
 
     "out_root": os.path.join("results", "exp_general_tn"),
 }
@@ -164,8 +168,11 @@ def m_star(cfg, name, op, K, eps, delta):
 
 @torch.no_grad()
 def sample_pool(sk, op, K, P):
-    """P single Tr(A^K) estimates, drawn once and reused for every batch size below."""
-    chunk, ests, done = sk.chunk(K), [], 0
+    """P single Tr(A^K) estimates, drawn once and reused for every batch size below.
+    Batch capped like pass_rate: the tree block's m^4 chi^2 d complex intermediate
+    per sample must stay under ~32 GB (matrix sketches now go through here too)."""
+    cap = max(1, 32_000_000_000 // (16 * sk.m ** 4 * op.chi ** 2 * op.d))
+    chunk, ests, done = max(1, min(sk.chunk(K), cap)), [], 0
     while done < P:
         c = min(chunk, P - done)
         ests.append(estimate_operator(sk, [sk.draw(c) for _ in range(K)], op))
@@ -305,18 +312,25 @@ def spectrum_part(cfg, folder):
 
 # %% [6] cost-to-(eps,delta) comparison -----------------------------------------------
 def compare_point(cfg, op, K):
-    """Cost to reach (eps,delta) for every CONFIG algo at one (op, K).  Matrix sketch
-    `tree`: single-shot m* -> cost of ONE m* estimate.  Scalar probes: smallest
-    averaging batch M -> M * per-sample cost (tt_capped: cheapest passing bond in
-    tt_R_list, each capped at the tree's 4 legs)."""
+    """Cost to reach (eps,delta) for every CONFIG algo at one (op, K).  EVERY method
+    gets its cheapest certified operating point: for each candidate size (tree: m in
+    tree_m_list; tt_capped: bond in tt_R_list; kron: rank-1) find the smallest
+    averaging batch M, cost = M * per-sample cost, keep the cheapest passing.  (The
+    theorem's single-shot m* is a sufficiency point, not the cost optimum -- (m, M)
+    is a two-dimensional dial and the scalar probes are just its rank-1 corner.)"""
     eps, delta = cfg["eps"], cfg["delta"]
     out = {}
     for name in cfg["algos"]:
         if name == "tree":
-            ms = m_star(cfg, name, op, K, eps, delta)
-            out[name] = (None if ms is None else
-                         {"m": ms, "cost": estimate_cost(
-                             make_sketch(cfg, name, ms, op), op, K)})
+            best = None
+            for m in cfg["tree_m_list"]:
+                sk = make_sketch(cfg, name, m, op)
+                M = min_batch(cfg, sk, op, K, eps, delta)
+                if M is not None:
+                    c = M * estimate_cost(sk, op, K)
+                    if best is None or c < best["cost"]:
+                        best = {"m": m, "M": M, "cost": c}
+            out[name] = best
         elif name == "tt_capped":
             best = None
             for R in cfg["tt_R_list"]:
