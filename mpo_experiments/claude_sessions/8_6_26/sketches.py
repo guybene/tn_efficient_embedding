@@ -16,8 +16,10 @@ W^H W, so estimating it is unnecessary): the input is A's network.  Every block
     M_r = S_r A S_{r+1}^H
 is contracted over the FULL network, fresh per block, and E_k = Tr(prod_r M_r),
 S_{K+1} = S_1.  For the XX operator the input is the MPO (op.mpo_cores).
-Families: TREE_REGISTRY (tree, kron, tt_capped) and XX_REGISTRY (ours, tt_capped,
-kron, kron_pauli -- the last is Noa's partial basis, XX-only).
+Families: TREE_REGISTRY (tree, kron, tt_capped, kressner) and XX_REGISTRY (ours,
+tt_capped, kron, kron_pauli, kressner -- kron_pauli is Noa's partial basis, XX-only;
+kressner is the STACKED TT probe of bujanovic2026tt Thm 9: ell independent rank-r
+probes per copy form an ell x ell block, rank r = N p, p = 2 ceil(log(1/delta)/2)).
 
 Operation counter: every contraction in an estimator goes through `_ec`, which adds
 the EXACT cost of that pairwise contraction (product of all its distinct index
@@ -374,7 +376,63 @@ class TreeTTCapped(TreeTT):
         super().__init__(min(m, 4), d, dist, device)
 
 
-TREE_REGISTRY = {"tree": TreeOurs, "kron": TreeKron, "tt_capped": TreeTTCapped}
+class TreeKressner(TreeSketch):
+    """Kressner's STACKED TT probe (bujanovic2026tt Thm 9) on the tree: per copy,
+    ell = m independent TT probes over the three dangling legs (d^2, d, d), each of
+    rank `bond` (Thm 9: bond = N p, N = 3 legs, p = 2 ceil(log(1/delta)/2) -- the
+    caller computes it from the experiment's delta), stacked as the rows of
+    S = (1/sqrt(ell)) [w_1; ...; w_ell].  The block is the ell x ell matrix
+    M[g, j] = <w_g | A | w'_j> / ell.  rows = ell.  Core std bond^{-(3-1)/(2*3)}
+    (TT normalization, E[w w^T] = I), the first core also carries 1/sqrt(ell), so
+    E[S^T S] = I.  Same FIXED ASYMMETRIC path and TT slot order as TreeTT.M; the
+    probe indices g (row) and j (column) ride along, so one sweep contracts all
+    ell^2 probe pairs and the counter charges ell^2 times a single pair."""
+    name = "kressner"
+
+    def __init__(self, m, d=2, dist="rademacher", device="cpu", bond=None):
+        super().__init__(m, d, dist, device)
+        assert bond is not None, "kressner: bond is required (Thm 9: bond = 3 p)"
+        self.bond = bond
+
+    def sketch_size(self):
+        return self.m
+
+    def draw(self, B):
+        d, R, L = self.d, self.bond, self.m
+        sc = R ** (-(3 - 1) / (2 * 3))
+        return [_rand((B, L, d * d, R), self.dist, self.device) * (sc / math.sqrt(L)),
+                _rand((B, L, R, d, R), self.dist, self.device) * sc,
+                _rand((B, L, R, d), self.dist, self.device) * sc]
+
+    def M(self, fac_row, fac_col, op):
+        """TreeTT.M with the row-probe index g and the column-probe index j carried
+        through every contraction; output (n, g, j) = the ell x ell block."""
+        c1, c2, c3 = [f.to(CDTYPE) for f in fac_row]
+        d1, d2, d3 = [f.conj().to(CDTYPE) for f in fac_col]
+        n = c1.shape[0]                 # every sample contracts the FULL network:
+        T1b = op.T1.unsqueeze(0).expand(n, -1, -1)           # data batched by hand
+        Cb = op.center.unsqueeze(0).expand(n, -1, -1, -1, -1)
+        a = _ec("nax,xyz->nayz", T1b, op.I1)            # (T1, I1)
+        a = _ec("ngah,nayz->nghyz", c1, a)              # ((c1, branch),
+        b = _ec("nghci,cy->nghiy", c2, op.T2)           #  (c2, T2)) -- then join:
+        a = _ec("nghyz,nghiy->ngiz", a, b)
+        t = _ec("nzwqv,fv->nzwqf", Cb, op.T3_col)       # (glued, T3^T)
+        t = _ec("nzwqf,ew->nzqfe", t, op.T3)            # (., T3)
+        t = _ec("nzqfe,xyq->nzfexy", t, op.I1_col)      # (., I1^T)
+        t = _ec("njkf,nzfexy->njkzexy", d3, t)          # ((d3, chain),
+        b = _ec("njpck,cy->njpky", d2, op.T2_col)       #  (d2, T2^T)) -- then join:
+        t = _ec("njkzexy,njpky->njzexp", t, b)
+        t = _ec("ngie,njzexp->ngjizxp", c3, t)          # ((c3, .),
+        t = _ec("ngjizxp,ngiz->ngjxp", t, a)            #  ., join the subtensors)
+        b = _ec("njap,ax->njpx", d1, op.T1_col)         # ((d1, T1^T),
+        return _ec("ngjxp,njpx->ngj", t, b)             # ., final join) -> (n, g, j)
+
+    def chunk(self, K):
+        return max(32, min(4096, 1_000_000 // max(1, self.m ** 2 * self.bond ** 2)))
+
+
+TREE_REGISTRY = {"tree": TreeOurs, "kron": TreeKron, "tt_capped": TreeTTCapped,
+                 "kressner": TreeKressner}
 
 
 # ----------------------------------------------------------------------------
@@ -610,8 +668,59 @@ class XXOurs(XXSketch):
         return max(32, min(8192, 1_000_000 // max(1, self.m ** 2 * self.chi)))
 
 
+class XXKressner(XXSketch):
+    """Kressner's STACKED TT probe (bujanovic2026tt Thm 9) on the MPO: per copy,
+    ell = m independent TT probes over the sites, each of rank `bond` (Thm 9:
+    bond = N p, N = n_sites, p = 2 ceil(log(1/delta)/2) -- the caller computes it
+    from the experiment's delta), stacked as the rows of
+    S = (1/sqrt(ell)) [w_1; ...; w_ell].  The block is the ell x ell matrix
+    M[a, b] = <w_a | A | w'_b> / ell.  rows = ell.  Core std bond^{-(N-1)/(2N)},
+    the first core also carries 1/sqrt(ell), so E[S^T S] = I.  Same L->R sweep
+    and per-site order as XXTT.M, with the probe indices a (row) and b (column)
+    carried along: one sweep contracts all ell^2 probe pairs."""
+    name = "kressner"
+
+    def __init__(self, n_sites, chi, m, dist="rademacher", device="cpu", bond=None):
+        super().__init__(n_sites, chi, m, dist, device)
+        assert bond is not None, "kressner: bond is required (Thm 9: bond = n_sites p)"
+        self.bond = bond
+
+    def rows(self):
+        return self.m
+
+    def draw(self, B):
+        d, R, N, L = self.d, self.bond, self.n_sites, self.m
+        sc = R ** (-(N - 1) / (2 * N))
+        cores = [_rand((B, L, d, R), self.dist, self.device) * (sc / math.sqrt(L))]
+        cores += [_rand((B, L, R, d, R), self.dist, self.device) * sc
+                  for _ in range(N - 2)]
+        cores += [_rand((B, L, R, d), self.dist, self.device) * sc]
+        return cores
+
+    def M(self, fac_row, fac_col, op):
+        """XXTT.M's sweep, per site ((W, crow_n), A_n) then ccol_n, with the
+        row-probe index a and the column-probe index b carried; output (n, a, b)."""
+        dt = fac_row[0].dtype
+        cc = [f.conj() for f in fac_col]
+        t = _ec("nadr,xdez->narez", fac_row[0], _dt(op.mpo_cores[0], dt))
+        t = _ec("nbes,narez->nabrsz", cc[0], t)
+        for l in range(1, self.n_sites - 1):
+            t = _ec("nabrsz,nardw->nabszdw", t, fac_row[l])
+            t = _ec("nabszdw,zdeq->nabsweq", t, _dt(op.mpo_cores[l], dt))
+            t = _ec("nabsweq,nbsep->nabwpq", t, cc[l])
+        t = _ec("nabrsz,nard->nabszd", t, fac_row[-1])
+        t = _ec("nabszd,zdeq->nabseq", t, _dt(op.mpo_cores[-1], dt))
+        t = _ec("nabseq,nbse->nabq", t, cc[-1])
+        return t.reshape(t.shape[0], self.m, self.m)    # trailing bond 1 -> (n, ell, ell)
+
+    def chunk(self, K):
+        return max(32, min(8192, 1_000_000 // max(1, self.m ** 2 * self.bond ** 2
+                                                  * self.chi ** 2)))
+
+
 XX_REGISTRY = {"ours": XXOurs, "tt_capped": XXTTCapped,
-               "kron": XXKron, "kron_pauli": XXKronPauli}
+               "kron": XXKron, "kron_pauli": XXKronPauli,
+               "kressner": XXKressner}
 
 
 # ----------------------------------------------------------------------------

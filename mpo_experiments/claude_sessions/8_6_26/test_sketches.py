@@ -78,10 +78,20 @@ def check_expectation_tree():
     block = sk.M(fac_row, fac_col, op)[0]
     assert torch.allclose(block, Sr @ A @ Sc.conj().T, atol=1e-10), \
         "tt: M != s_row A s_col^H"
-    print("    wiring: M == S_row A S_col^H (dense reference)  tree/kron/tt  ok")
+
+    sk = TREE_REGISTRY["kressner"](4, d=2, bond=6)     # ell = 4 stacked probes
+    fac_row, fac_col = sk.draw(1), sk.draw(1)
+    Sr = torch.einsum("gah,ghci,gie->gace",
+                      *[f[0] for f in fac_row]).reshape(sk.m, -1).to(CDTYPE)
+    Sc = torch.einsum("gah,ghci,gie->gace",
+                      *[f[0] for f in fac_col]).reshape(sk.m, -1).to(CDTYPE)
+    block = sk.M(fac_row, fac_col, op)[0]
+    assert torch.allclose(block, Sr @ A @ Sc.conj().T, atol=1e-10), \
+        "kressner: M != S_row A S_col^H"
+    print("    wiring: M == S_row A S_col^H (dense reference)  tree/kron/tt/kressner  ok")
 
     for name, cls in TREE_REGISTRY.items():
-        sk = cls(4, d=2)
+        sk = cls(4, d=2, bond=6) if name == "kressner" else cls(4, d=2)
         for K in (1, 2):
             truth, ests, done = op.true_pk(K), [], 0
             while done < 150_000:
@@ -120,7 +130,7 @@ def check_expectation_xx():
     # Expectation test (NA=3), through the estimator, for every xx sketch.
     op = build_xx_mps(3)
     for name, cls in XX_REGISTRY.items():
-        sk = cls(3, op.chi, 4)
+        sk = cls(3, op.chi, 4, bond=6) if name == "kressner" else cls(3, op.chi, 4)
         for K in (1, 2):
             truth, ests, done = op.true_pk(K), [], 0
             while done < 150_000:

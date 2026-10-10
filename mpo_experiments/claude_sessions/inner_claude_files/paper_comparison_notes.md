@@ -123,3 +123,66 @@ validated against op counter (`cost_per_algorithm.md`, `sketches.py`); drivers
 `theorem_assert.py` (m* vs N/K/C) and `embedding_compare.py` (cost-to-target); Colab
 harness. Current test operators: identity (flat spectrum — Camaño-hard), all_ones
 (their variance-bound tightness witness), both bond-1 MPOs.
+
+
+---
+
+## 5. 2026-10-09 -- THE comparison set (user's decision; all five re-read in full)
+
+The user states these FIVE are the most relevant papers and THE actual papers to
+compare against. Everything else in `papers_for_claude/` is supporting material
+(Ma-Solomonik = engine, Meyer-Avron = Kronecker lower bound, Rakhshan-Rabusseau =
+TT-Rademacher, Ahle et al. = JL-moment machinery).
+
+1. **Kressner** = Bujanovic-Kressner-Olic, *Stochastic trace estimation with tensor
+   train random vectors* (arXiv:2606.15679, `bujanovic2026tt`). Girard-Hutchinson
+   with Gaussian TT probes, k=1 only. Thm 5 moment bound E[(u^T w)^{2p}] <=
+   (2p-1)!! [(1+2/r)...(1+2(p-1)/r)]^{d-1}; Thm 7 Chebyshev l >= 22 eps^-2 delta^-1 at
+   rank r >= d-1; Cor 8 median-of-means O(eps^-2 log 1/delta); Thm 9 rank r = d*p,
+   p = 2 ceil(1/2 log(1/delta)) gives l >= 16 e^7 eps^-2 p WITHOUT median-of-means;
+   Thm 13 OSI with P = O(eps^-2 max{k, log(2k/delta)}) (factor d better than TTStack);
+   Sec 4 Nystrom++ needs the spectral-tail mass tau_k(A); A = I shows NO uniform
+   Frobenius-scale variance bound (Var/||I||_F^2 >= 2 n^{d-1}/r). No experiments.
+2. **Noa** = Feldman-Kshetrimayum-Eisert-Goldstein (PRX Quantum 3, 030312, 2022,
+   `feldman2022entanglement`). SAME cyclic estimator as ours with rank-1 product
+   probes (Eq. 23); exact variance Tr((rho_A^{(x)2} E)^n) - p_n^2 with E = (x) E^[alpha]
+   (Eqs. 34-41); scaling factor xi_n^{N_A} (Table I: XX xi_2 1.54 / xi_3 1.65 / xi_4
+   2.09 best basis); partial-basis + basis optimization (Sec IV C, Eq. 55); benchmarks
+   toric-code iPEPS checkerboard and XX half-chain; protocol Fig. 7 rel. error vs
+   M/xi^{N_A}, Fig. 8 Var/p^2 vs N_A with fitted base.
+3. **TT Stack** = Cazeaux-Dupuy-Figueroa Justiniano, *Linear-scaling Tensor Train
+   Sketching* (arXiv:2603.11009 v3, `cazeaux2026linear`). TTStack (P stacked
+   Gaussian-TT row blocks of rank R) interpolates Khatri-Rao (R=1) and Gaussian TT
+   (P=1); Thm 3.6 OSE R = O(d(r+log 1/delta)), P = O(eps^-2); Thm 3.9 OSI R >= p_F d,
+   P = O(eps^-2 (r + log r/delta)) via subspace entanglement C_Q(R) (maximal on
+   Kronecker vectors = overwhelming orthogonality); Prop 7.4 fourth-moment bound
+   Mom(S) <= sum_I gamma_I ||tr_I(S)||_F^2, sum gamma_I = (1+p_F/R)^d (equality over C);
+   Orthogonal TTStack (Stiefel cores) empirically best, no theory. NO trace
+   experiments (TT rounding, Hadamard products, LiH Rayleigh-Ritz only).
+4. **Khan** = Khan-Pratap-Sharma, *Accurate Trace Estimation with Fewer Random Bits
+   via Recursive TensorSketch* (arXiv:2609.18577, Sep 2026). Estimator
+   tr(Pi_p A Pi_p^T), Pi_p = Ahle et al. Recursive TensorSketch (p CountSketch leaves
+   m x d, p-1 degree-2 TensorSketch nodes m^2 -> m, p a power of 2). Thm 11 unbiased,
+   Var <= (10p/m + 100p^2/m^2) tr(A)^2 (layer constants c_i = 2 leaves, 8 nodes);
+   Thm 14 (eps,delta) via Chebyshev when m >= 20p/(eps^2 delta); complex variant
+   (fourth roots of unity) 4p/m + 16p^2/m^2, m >= 8p/(eps^2 delta); random bits
+   O(p(d+m) log m). k=1 only, matvec model, no tensor networks, no experiments.
+   Baselines in their Table 1: Hutchinson, Meyer-Avron Kronecker-Hutchinson.
+5. **Camano** = Camano-Epperly-Meyer-Tropp, *Linear algebra at exponential scale via
+   tensor network dimension reduction* (arXiv:2606.15350, `camano2026exp`). rMPS
+   probes (cores N(0,1/chi) bulk, N(0,1/sqrt chi) boundary); Thm 1.2 variance
+   Var <= 2(1+1/chi)^{n-1}||A||_F^2 + [3(1+2/chi)^{n-1} - 2(1+1/chi)^{n-1} - 1]||A||_*^2
+   (real), tight at A = all-ones; Thm 4.4 fractured Gaussian (Bernoulli(1/chi) cuts)
+   -> thesis chi >~ n; Alg 1 MPS Girard-Hutchinson, Alg 2 GramNystrom (8-digit cap
+   from the stability shift), Alg 3 Nystrom++ (Thm 3.3/3.4: O(1/eps) matvecs when
+   chi >~ n/eps), Alg 4 XNysTrace (empirical winner, NO theory); Sec 3.4.3 von Neumann
+   entropy of the 200-site PTFIM half-chain RDM via funNystrom eigenvalues (rho_A as an
+   order-2n_A MPS, "not an MPO!"). k=1 only. Test MPOs: classical Ising e^{-beta H}
+   (D=2, n=50, beta 0.1/1/10), exp-diag alpha^i D=1, inverse Laplacian D=5, staircase
+   D=7. Protocol: 60 trials, median + 10/90 quantiles. Code github.com/chriscamano/TNrandNLA.
+
+What that means for the Experiments section: the k>=2 cyclic estimator has NO
+competitor in this set except Noa (rank-1); Kressner/Camano/TT Stack/Khan are all k=1
+and enter as (a) the rMPS/TT-probe baseline we run as `tt_capped`, (b) variance
+bounds to quote, (c) protocol conventions. Khan has no tensor-network cost model at
+all (random bits is its axis).

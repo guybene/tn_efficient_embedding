@@ -1,48 +1,65 @@
 # %% [markdown]
-# EXP XX -- Renyi moments of the XX ground state: m* theorem part + method comparison
+# EXP XX -- Renyi moments of the XX ground state: m* theorem part + race
 # =====================================================================================
 r"""
 EXPERIMENT 2: Renyi moments p_k = Tr(rho_A^k), k >= 2, of the XX ground state.
 
-OPERATOR (XX only -- the identity/all_ones synthetic operators were parked 2026-08-12
-to focus on the physical case; restore from archive/retired_2026_08_12_idones.py).
-  * xx        rho_A of the XX-chain ground state (L = 2*NA sites, open chain,
-              H = J sum (s+ s- + h.c.)): TeNPy DMRG ground state (MPS) -> XX_MPS,
-              the operator AS AN MPO: mpo_cores = per-site Kronecker MPS.MPS^*
-              cores (bond chi^2, cut closed at build).  Never expanded.  Ground
-              truth is exact (chi x chi Gram of the factor W) and cross-checked
-              at build time against TeNPy's own Schmidt spectrum at the cut
-              (asserted inside build_xx_mps).
+OPERATOR: rho_A of the XX-chain ground state (L = 2*NA sites, open chain,
+H = J sum (s+ s- + h.c.)): TeNPy DMRG ground state (MPS) -> XX_MPS, the operator AS
+AN MPO: mpo_cores = per-site Kronecker MPS.MPS^* cores (bond chi^2, cut closed at
+build).  Never expanded.  Ground truth is exact (chi x chi Gram of the factor W) and
+cross-checked at build against TeNPy's Schmidt spectrum (asserted in build_xx_mps).
+The physical dimension is d = 2 (spin-1/2 chain): d is NOT a parameter here, it is
+raced on the general tree operator (exp_general_tn).
 
-THE EXPERIMENT: the MPO is the input; every block S_r A S_{r+1}^T is one L->R
-sweep over the MPO cores, fresh per block.  (The MPS experiment was REMOVED
-2026-08-28: given the factor W, Tr((W W^H)^k) is exactly computable from the
-chi x chi Gram W^H W, so estimating it is unnecessary -- and ma, its sketch,
-went with it.)
+THE ESTIMATOR: the MPO is the input; every block S_r A S_{r+1}^T is one L->R sweep
+over the MPO cores, fresh per block.
 
-METHODS (CONFIG algos; matrix sketches reach (eps,delta) single-shot via m*,
-scalar probes via the smallest Monte-Carlo averaging batch M -- same protocol
-as exp 1):
+METHODS (CONFIG algos):
   ours        OUR sketch (alg:mpop): TT cores over the sites, dangling size-m output
   tt_capped   rMPS probe (the k>1 extension of the Camano/Kressner chain probes), bond
-              capped at min(R, sites) -- the Schmidt limit; R from tt_R_list, cheapest
-              passing kept
+              capped at min(R, sites) -- the Schmidt limit; R from tt_R_list
   kron        Rademacher product probe (rows = 1)
   kron_pauli  Noa's partial-basis probe in her XX best-case basis (phi, theta) =
               (pi/2, pi/2) (her Sec. IV C, Table I; fixed in sketches._pauli_table)
+  kressner    bujanovic2026tt Thm 9: ell independent rMPS probes per copy stacked into
+              an ell x ell block (rows = ell), probe rank N_A p with
+              p = 2 ceil(log(1/delta)/2); ell from kressner_m_list
 
-OUTPUTS per spectrum: m* vs sites for the matrix sketches (theorem shape ~sites^2
-overlaid), cost-to-(eps,delta) vs sites and vs k for all methods (log y), an optional
-running-mean error-vs-cost curve panel, config.json + results.json.
-COLAB: upload sketches.py next to this file, `pip install physics-tenpy` (the XX
-ground state comes from TeNPy DMRG), run the `# %%` cells in order; DEVICE is
-auto-detected; heavier Colab values sit in comments next to each CONFIG entry.
+TWO STEPS, two functions called from main (comment either out):
+  run(cfg, folder)   computes and SAVES one pickle per smallest unit of work; a
+                     finished file is skipped on rerun, so a crash costs only the
+                     unit that crashed.
+  plot(cfg, folder)  reads ONLY the pickles and draws the figures + summary.json.
+
+FOLDER HIERARCHY  results/exp_xx/<tag>/
+  partA_theorem/<thm1|thm2>/vs_sites/sites=<N>/ours.pkl
+  partB_race/vs_<param>/<param>=<value>/<method>/size=<s>.pkl
+  plots/*.png, plots/summary.json, config.json
+
+PART A -- THEOREM (ours only): smallest m whose SINGLE estimate is (eps,delta)-
+  accurate, vs sites (the N parameter), thm1 (K=1) and thm2 (K=base).  The pickle
+  is updated after EVERY pass-rate evaluation of the m* search (resumable).
+
+PART B -- RACE (all methods): contraction cost (exact op count) to reach (eps,delta)
+  vs sites, K, eps, delta.  Every method runs a fixed list of sizes (ours: m,
+  kressner: ell, tt_capped: bond R, kron/kron_pauli: rank-1); each size gets its
+  smallest averaging batch M from one Monte-Carlo pool; cost = M * per-sample cost;
+  the plot keeps the cheapest size per method.  One pickle per
+  (parameter, value, method, size).
+
+Every pickle is a dict: the point's full context, the raw estimates as numpy arrays
+("evals"[m]["est"] for part A, "pool" for part B), the derived numbers, seconds,
+peak RSS (Linux only).
 """
 
 # %% [1] imports & device -------------------------------------------------------------
 import os
 import json
+import math
 import time
+import zlib
+import pickle
 
 import torch
 import matplotlib
@@ -52,136 +69,165 @@ import matplotlib.pyplot as plt
 from sketches import (XX_REGISTRY, estimate_operator, estimate_cost,
                       build_xx_mps, DTYPE)
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+try:
+    import resource                      # peak RSS (Linux server); absent on Windows
+except ImportError:
+    resource = None
+
+DEVICE = "cpu"      # server: 2GB/CUDA-11.4 GPU is unusable; 125GB RAM CPU is the backend
 
 # %% [2] CONFIG -----------------------------------------------------------------------
 CONFIG = {
-    "d": 2,
+    "d": 2,                    # fixed by the XX model (spin-1/2); tag only
     "dist": "rademacher",
     "seed": 0,
 
     "eps": 0.3,
     "delta": 0.2,
-    "groups": 500,             # estimators per single-shot pass-rate   (Colab: 2000)
-    "m_ceiling": 192,          # m* binary-search cap                   (Colab: 512)
-    "pool": 300_000,           # Monte-Carlo pool for the scalar batch search (Colab: 5e6)
+    "groups": 500,             # estimators per single-shot pass-rate
+    "m_ceiling": 192,          # m* search cap
+    "pool": 300_000,           # Monte-Carlo pool for the batch search
     "min_groups": 40,          # censoring floor: batch search stops at pool/min_groups
 
-    "spectra": ["xx"],         # identity/all_ones parked 2026-08-12 (see archive)
-    "k_list": [2, 3, 4],
-    "base_K": 2,
-    "NA_list": [3, 4, 5],      # xx subsystem sizes (L = 2*NA)          (Colab: [4,6,8,10])
-    "base_sites": {"xx": 4},
+    "base": {"sites": 4, "K": 2},   # the base point; every sweep moves one parameter
 
-    "algos": ["ours", "tt_capped", "kron", "kron_pauli"],
-    "matrix_algos": ["ours"],
-    "tt_R_list": [2, 4],       # rMPS probe bonds tried (per point the cheapest passing)
+    # PART A (theorem, ours only): m* vs sites, thm1 (K=1) and thm2 (K=base)
+    "sites_list": [3, 4, 5],   # xx subsystem sizes N_A (L = 2*N_A)
 
-
-    # optional running-mean error-vs-cost curves (one panel; leading-order batches)
-    "curves": {"enabled": True, "spectrum": "xx", "sites": 4, "K": 2, "m": 12,
-               "points": 40, "base_batch": 1, "burn": 0.3,
-               "batch_pow": {"ours": 0, "tt_capped": 3,
-                             "kron": 3, "kron_pauli": 3}},
+    # PART B (race, all methods): cost to (eps,delta) vs each parameter
+    "race_params": ["sites", "K", "eps", "delta"],
+    "K_list": [2, 3, 4],
+    "eps_list": [0.5, 0.4, 0.3, 0.25, 0.2],
+    "delta_list": [0.4, 0.3, 0.2, 0.1],
+    "algos": ["ours", "tt_capped", "kron", "kron_pauli", "kressner"],
+    "ours_m_list": [2, 4, 8, 16, 32],      # our sizes tried, each with its own min batch M
+    "kressner_m_list": [2, 4, 8, 16, 32],  # ell stacked probes per copy, same (ell, M)
+                               # search; probe rank fixed by Thm 9 (bond = sites p, see make)
+    "tt_R_list": [2, 4],       # rMPS probe bonds tried
 
     "out_root": os.path.join("results", "exp_xx"),
 }
 
 
-# %% [3] operator handles (one interface over the two backends) -----------------------
+# %% [3] operator handle + sketch builder ---------------------------------------------
 class XXHandle:
-    """rho_A of the XX ground state, as an MPO.  Cost = measured _ec count."""
+    """rho_A of the XX ground state at N_A = sites, as an MPO (built once, cached)."""
 
     def __init__(self, cfg, sites):
         self.cfg, self.sites = cfg, sites
         self.op = build_xx_mps(sites, device=DEVICE)
-        pks = "  ".join(f"p{k}={self.op.true_pk(k):.5f}" for k in cfg["k_list"])
-        print(f"  [xx NA={sites}] chi={self.op.chi}  rho={self.op.intrinsic_dim():.2f}  {pks}  "
-              f"(TeNPy Schmidt cross-check inside build OK)")
+        print(f"  [xx NA={sites}] chi={self.op.chi}  rho={self.op.intrinsic_dim():.2f}  "
+              f"p2={self.op.true_pk(2):.5f}  (TeNPy Schmidt cross-check inside build OK)")
 
-    def true(self, K):
-        return self.op.true_pk(K)
-
-    def make(self, name, m):
+    def make(self, name, m, delta):
+        if name == "kressner":   # bujanovic2026tt Thm 9 rank: N p, p = 2 ceil(log(1/delta)/2)
+            p = 2 * math.ceil(0.5 * math.log(1.0 / delta))
+            return XX_REGISTRY[name](self.sites, self.op.chi, m, self.cfg["dist"], DEVICE,
+                                     bond=self.sites * p)
         return XX_REGISTRY[name](self.sites, self.op.chi, m, self.cfg["dist"], DEVICE)
 
-    def estimate(self, sk, facs):
-        return estimate_operator(sk, facs, self.op)
 
-    def cost(self, sk, K):
-        return estimate_cost(sk, self.op, K)
-
-
-# (MpoHandle -- the identity/all_ones bond-1 MPO backend -- and the algos_for filter
-#  were parked 2026-08-12 with the synthetic spectra: archive/retired_2026_08_12_idones.py)
-def get_handle(cfg, spectrum, sites, _cache={}):
-    assert spectrum == "xx", "only the xx spectrum is active (id/all_ones parked)"
-    if ("xx", sites) not in _cache:
-        _cache[("xx", sites)] = XXHandle(cfg, sites)
-    return _cache[("xx", sites)]
+def get_handle(cfg, sites, _cache={}):
+    if sites not in _cache:
+        _cache[sites] = XXHandle(cfg, sites)
+    return _cache[sites]
 
 
-# %% [4] shared (eps,delta) utilities -------------------------------------------------
-@torch.no_grad()
-def pass_rate(h, sk, K, eps, M, groups):
-    """Fraction of `groups` estimators (each the mean of M single estimates) within eps
-    of the truth; the (eps,delta) property holds iff this >= 1 - delta."""
-    tv, need, chunk = h.true(K), groups * M, max(sk.chunk(K), M)
-    ests, done = [], 0
-    while done < need:
-        c = min(chunk, need - done)
-        ests.append(h.estimate(sk, [sk.draw(c) for _ in range(K)]))
-        done += c
-    r = torch.cat(ests)[:need].reshape(groups, M).mean(dim=1) / tv
-    return ((r - 1.0).abs() <= eps).double().mean().item()
+def sizes_for(cfg, name):
+    """The sizes a method runs in the race (ours: m, kressner: ell, tt_capped: R,
+    kron/kron_pauli: rank-1, size ignored)."""
+    if name == "ours":
+        return cfg["ours_m_list"]
+    if name == "kressner":
+        return cfg["kressner_m_list"]
+    if name == "tt_capped":
+        return cfg["tt_R_list"]
+    return [1]
 
 
-def m_star(cfg, h, name, K, eps, delta):
-    """Single-shot m*: smallest m whose ONE estimate is (eps,delta); None = censored."""
-    groups, ceil, cache = cfg["groups"], cfg["m_ceiling"], {}
+# %% [4] bookkeeping: pickles, seeds, memory ------------------------------------------
+def _lp(path):
+    """Windows extended-length path form: lifts the 260-character limit that
+    the deep results hierarchy can hit; a no-op elsewhere."""
+    path = os.path.abspath(path)
+    if os.name == "nt" and not path.startswith("\\\\?\\"):
+        path = "\\\\?\\" + path
+    return path
 
-    def pr(m):
-        if m not in cache:
-            cache[m] = pass_rate(h, h.make(name, m), K, eps, 1, groups)
-        return cache[m]
 
-    if pr(ceil) < 1.0 - delta:
+def load_pkl(path):
+    if not os.path.exists(_lp(path)):
         return None
-    lo, hi = 1, ceil
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if pr(mid) >= 1.0 - delta:
-            hi = mid
-        else:
-            lo = mid + 1
-    return lo
+    with open(_lp(path), "rb") as f:
+        return pickle.load(f)
 
 
+def save_pkl(path, rec):
+    os.makedirs(_lp(os.path.dirname(path)), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(_lp(tmp), "wb") as f:             # write-then-rename: a crash never
+        pickle.dump(rec, f)                     # leaves a half-written pickle
+    os.replace(_lp(tmp), _lp(path))
+
+
+def subdirs(path):
+    """Immediate subdirectory names of a results folder (long-path safe)."""
+    p = _lp(path)
+    if not os.path.isdir(p):
+        return []
+    return sorted(e.name for e in os.scandir(p) if e.is_dir())
+
+
+def load_units(root):
+    """Every finished pickle under root, recursively (long-path safe)."""
+    out = []
+    for dirpath, _, files in os.walk(_lp(root)):
+        for name in files:
+            if name.endswith(".pkl"):
+                with open(os.path.join(dirpath, name), "rb") as f:
+                    rec = pickle.load(f)
+                if rec["done"]:
+                    out.append(rec)
+    return out
+
+
+def seed_for(cfg, *keys):
+    """Deterministic per-unit seed: the same unit redraws the same samples on a
+    rerun, independent of what ran before it."""
+    torch.manual_seed(cfg["seed"] ^ zlib.crc32("|".join(str(k) for k in keys).encode()))
+
+
+def peak_rss_mb():
+    if resource is None:
+        return None
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0   # Linux: KB
+
+
+# %% [5] the two primitives: single estimates, batch search ---------------------------
 @torch.no_grad()
-def sample_pool(h, sk, K, P):
+def single_estimates(sk, op, K, n):
+    """n single Tr(A^K) estimates (one per sample), chunked by the sketch's chunk."""
     chunk, ests, done = sk.chunk(K), [], 0
-    while done < P:
-        c = min(chunk, P - done)
-        ests.append(h.estimate(sk, [sk.draw(c) for _ in range(K)]))
+    while done < n:
+        c = min(chunk, n - done)
+        ests.append(estimate_operator(sk, [sk.draw(c) for _ in range(K)], op))
         done += c
-    return torch.cat(ests)[:P]
+    return torch.cat(ests)[:n].real.cpu()
 
 
-def min_batch(cfg, h, sk, K, eps, delta):
-    """Smallest averaging batch M whose M-sample mean is (eps,delta), measured on one
-    Monte-Carlo pool (pass rate at M = fraction of the pool//M disjoint M-means within
-    eps).  Censored (None) beyond M = pool/min_groups."""
-    r = sample_pool(h, sk, K, cfg["pool"]) / h.true(K)
-    lo_groups = cfg["min_groups"]
-
+def min_batch(r, eps, delta, min_groups):
+    """Smallest averaging batch M whose M-sample mean is (eps,delta), on one pool r of
+    single estimates divided by the truth: the pass rate at M is the fraction of the
+    pool//M disjoint M-means within eps.  Binary search on M.  None (censored) once
+    fewer than min_groups disjoint means remain, i.e. beyond M = pool/min_groups."""
     def ok(M):
         gs = len(r) // M
-        if gs < lo_groups:
+        if gs < min_groups:
             return False
         means = r[: gs * M].reshape(gs, M).mean(dim=1)
         return ((means - 1.0).abs() <= eps).double().mean().item() >= 1.0 - delta
 
-    ceil = len(r) // lo_groups
+    ceil = len(r) // min_groups
     if not ok(ceil):
         return None
     lo, hi = 1, ceil
@@ -194,205 +240,225 @@ def min_batch(cfg, h, sk, K, eps, delta):
     return lo
 
 
-# %% [5] m* part (matrix sketches; the theorem statement) -----------------------------
-def mstar_part(cfg, folder):
-    colors = {"ours": "tab:blue"}
-    res = {}
-    for spectrum in cfg["spectra"]:
-        sites_list = cfg["NA_list"]
-        res[spectrum] = {}
-        for K in cfg["k_list"]:
-            rows = {a: [] for a in cfg["matrix_algos"]}
-            print(f"\n[m* | {spectrum} | K={K}]  eps={cfg['eps']} delta={cfg['delta']}")
-            for sites in sites_list:
-                h = get_handle(cfg, spectrum, sites)
-                for a in cfg["matrix_algos"]:
-                    ms = m_star(cfg, h, a, K, cfg["eps"], cfg["delta"])
-                    rows[a].append(ms)
-                msg = "  ".join(f"{a}={'cens' if rows[a][-1] is None else rows[a][-1]}"
-                                for a in cfg["matrix_algos"])
-                print(f"   sites={sites}: {msg}")
-            res[spectrum][f"K{K}"] = {"sites": sites_list, **rows}
-            fig, ax = plt.subplots(figsize=(8, 5.5))
-            for a in cfg["matrix_algos"]:
-                gx = [s for s, v in zip(sites_list, rows[a]) if v is not None]
-                gy = [v for v in rows[a] if v is not None]
-                if gx:
-                    ax.plot(gx, gy, marker="o", ms=8, lw=2, color=colors[a], label=a)
-                    ref = [gy[0] * (x / gx[0]) ** 2 for x in sites_list]
-                    ax.plot(sites_list, ref, "--", color=colors[a], alpha=0.5,
-                            label=f"{a} theorem shape ~sites^2")
-                for s, v in zip(sites_list, rows[a]):
-                    if v is None:
-                        ax.scatter([s], [cfg["m_ceiling"]], marker="x", s=90,
-                                   color=colors[a])
-            ax.set_xlabel("sites (N_A for xx, N otherwise)", fontsize=12)
-            ax.set_ylabel("m*  (single-shot (eps,delta))", fontsize=12)
-            ax.set_title(f"{spectrum}  |  m* vs sites  |  K={K}", fontsize=12)
-            ax.grid(True, alpha=0.3); ax.legend(fontsize=10)
-            fig.tight_layout()
-            path = os.path.join(folder, f"mstar_vs_sites_{spectrum}_K{K}.png")
-            fig.savefig(path, dpi=130); plt.close(fig)
-            print(f"   saved {os.path.abspath(path)}")
-    return res
+# %% [6] PART A units: one m* search per pickle, resumable per evaluation -------------
+def _suff(K, eps, delta, sites, spectrum):
+    """The sufficiency-bound shape (cor:k1-gaussian for K=1, cor:k-gaussian for K>=2)
+    up to its constant: N_E = sites - 1 cores, d_Pi = 2^sites, and
+    rho = Tr(A)/Tr(A^K)^(1/K) from the exact spectrum."""
+    logs = sites * math.log(2) + math.log(max(K, 1) / delta)
+    if K == 1:
+        return (sites - 1) * logs / eps ** 2
+    rho = float(spectrum.sum() / (spectrum ** K).sum() ** (1.0 / K))
+    return (sites - 1) * K ** 2 * max(1.0, rho ** 2 * eps) * logs / eps ** 2
 
 
-# %% [6] cost-to-(eps,delta) comparison (all methods) ---------------------------------
-def compare_point(cfg, h, K, algos):
-    eps, delta, out = cfg["eps"], cfg["delta"], {}
-    for name in algos:
-        if name in cfg["matrix_algos"]:
-            ms = m_star(cfg, h, name, K, eps, delta)
-            out[name] = (None if ms is None else
-                         {"m": ms, "cost": h.cost(h.make(name, ms), K)})
-        elif name == "tt_capped":
-            best = None
-            for R in cfg["tt_R_list"]:
-                sk = h.make(name, R)
-                M = min_batch(cfg, h, sk, K, eps, delta)
-                if M is not None:
-                    cost = M * h.cost(sk, K)
-                    if best is None or cost < best["cost"]:
-                        best = {"R": R, "M": M, "cost": cost}
-            out[name] = best
-        else:                                        # kron / kron_pauli (xx only)
-            sk = h.make(name, 1)
-            M = min_batch(cfg, h, sk, K, eps, delta)
-            out[name] = (None if M is None else
-                         {"M": M, "cost": M * h.cost(sk, K)})
-    return out
+def run_mstar_unit(cfg, path, h, K, eps, delta, context):
+    """Single-shot m* of `ours` at one point: smallest m in [1, m_ceiling] whose ONE
+    estimate is (eps,delta).  Doubling search up from m=1 (cheap points never
+    evaluate the ceiling), then binary search in the last interval; None if
+    censored.  EVERY pass-rate evaluation is written to the pickle before the next
+    one starts, so a rerun resumes the search."""
+    rec = load_pkl(path)
+    if rec is not None and rec["done"]:
+        return rec
+    op = h.op
+    if rec is None:
+        rec = {**context, "K": K, "eps": eps, "delta": delta,
+               "true": op.true_pk(K), "spectrum": op.spectrum.cpu().numpy(),
+               "suff": _suff(K, eps, delta, h.sites, op.spectrum),
+               "evals": {}, "m_star": None, "seconds": 0.0, "peak_rss_mb": None,
+               "done": False}
+    groups, ceil = cfg["groups"], cfg["m_ceiling"]
+
+    def pr(m):
+        if m not in rec["evals"]:
+            t0 = time.time()
+            seed_for(cfg, path, m)
+            est = single_estimates(h.make("ours", m, delta), op, K, groups)
+            rate = ((est / rec["true"] - 1.0).abs() <= eps).double().mean().item()
+            rec["evals"][m] = {"est": est.numpy(), "pass_rate": rate}
+            rec["seconds"] += time.time() - t0
+            rec["peak_rss_mb"] = peak_rss_mb()
+            save_pkl(path, rec)
+        return rec["evals"][m]["pass_rate"]
+
+    m = 1
+    while m < ceil and pr(m) < 1.0 - delta:
+        m = min(2 * m, ceil)
+    if pr(m) >= 1.0 - delta:
+        lo, hi = m // 2 + 1, m
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if pr(mid) >= 1.0 - delta:
+                hi = mid
+            else:
+                lo = mid + 1
+        rec["m_star"] = lo
+    rec["done"] = True
+    save_pkl(path, rec)
+    return rec
 
 
-def comparison(cfg, folder):
-    colors = {"ours": "tab:blue", "tt_capped": "tab:orange",
-              "kron": "tab:green", "kron_pauli": "tab:red"}
-    res = {}
+def run_part_a(cfg, folder):
+    for tag in ("thm1", "thm2"):
+        K = 1 if tag == "thm1" else cfg["base"]["K"]
+        for sites in cfg["sites_list"]:
+            path = os.path.join(folder, "partA_theorem", tag, "vs_sites",
+                                f"sites={sites}", "ours.pkl")
+            h = get_handle(cfg, sites)
+            rec = run_mstar_unit(cfg, path, h, K, cfg["eps"], cfg["delta"],
+                                 {"part": "A", "theorem": tag, "sweep": "sites",
+                                  "x": sites, "sites": sites})
+            print(f"  [A {tag} vs sites={sites}] K={K} m*="
+                  f"{'CENSORED' if rec['m_star'] is None else rec['m_star']}  "
+                  f"({rec['seconds']:.0f}s)")
 
-    def plot(xs, xlabel, rows, title, fname, algos):
+
+# %% [7] PART B units: one (parameter, value, method, size) per pickle ----------------
+def run_race_unit(cfg, path, h, K, eps, delta, algo, size, context):
+    """One method at one size at one point: draw the Monte-Carlo pool, find the
+    smallest averaging batch M, cost = M * per-sample op count.  Written once,
+    complete; a crash mid-pool leaves nothing and the unit reruns alone."""
+    rec = load_pkl(path)
+    if rec is not None and rec["done"]:
+        return rec
+    t0 = time.time()
+    seed_for(cfg, path)
+    sk = h.make(algo, size, delta)
+    tv = h.op.true_pk(K)
+    pool = single_estimates(sk, h.op, K, cfg["pool"])
+    M = min_batch(pool / tv, eps, delta, cfg["min_groups"])
+    cost_per = estimate_cost(sk, h.op, K)
+    rec = {**context, "K": K, "eps": eps, "delta": delta, "algo": algo, "size": size,
+           "rows": sk.rows(), "bond": getattr(sk, "bond", None), "true": tv,
+           "pool": pool.numpy(), "M": M, "cost_per_sample": cost_per,
+           "cost": None if M is None else M * cost_per,
+           "seconds": time.time() - t0, "peak_rss_mb": peak_rss_mb(), "done": True}
+    save_pkl(path, rec)
+    return rec
+
+
+def run_part_b(cfg, folder):
+    base = cfg["base"]
+    for param in cfg["race_params"]:
+        for x in cfg[f"{param}_list"]:
+            sites = x if param == "sites" else base["sites"]
+            K = x if param == "K" else base["K"]
+            eps = x if param == "eps" else cfg["eps"]
+            delta = x if param == "delta" else cfg["delta"]
+            h = get_handle(cfg, sites)
+            for algo in cfg["algos"]:
+                for size in sizes_for(cfg, algo):
+                    path = os.path.join(folder, "partB_race", f"vs_{param}",
+                                        f"{param}={x}", algo, f"size={size}.pkl")
+                    rec = run_race_unit(cfg, path, h, K, eps, delta, algo, size,
+                                        {"part": "B", "sweep": param, "x": x,
+                                         "sites": sites})
+                    print(f"  [B vs {param}={x}] {algo:10s} size={size:3d}  M="
+                          f"{'cens' if rec['M'] is None else rec['M']:>6}  cost="
+                          f"{'cens' if rec['cost'] is None else format(rec['cost'], '.2e')}"
+                          f"  ({rec['seconds']:.0f}s)")
+
+
+# %% [8] STEP 1: run ------------------------------------------------------------------
+def run(cfg, folder):
+    print(f"device={DEVICE}  dtype={str(DTYPE).split('.')[-1]}")
+    print("\n[PART A] theorem: m* of ours vs sites")
+    run_part_a(cfg, folder)
+    print("\n[PART B] race: cost to (eps,delta), all methods")
+    run_part_b(cfg, folder)
+
+
+# %% [9] STEP 2: plot (reads only the pickles) ---------------------------------------
+def plot(cfg, folder):
+    plots = os.path.join(folder, "plots")
+    os.makedirs(_lp(plots), exist_ok=True)
+    summary = {"partA": {}, "partB": {}}
+    # ---- PART A: m* vs sites, sufficiency shape scaled to the first point ----
+    for tag in ("thm1", "thm2"):
+        recs = sorted(load_units(os.path.join(folder, "partA_theorem", tag)),
+                      key=lambda r: r["x"])
+        if not recs:
+            continue
+        summary["partA"][f"{tag}_vs_sites"] = [
+            {"x": r["x"], "m_star": r["m_star"], "suff": r["suff"], "seconds": r["seconds"]}
+            for r in recs]
+        fig, ax = plt.subplots(figsize=(8, 5.5))
+        gx = [r["x"] for r in recs if r["m_star"] is not None]
+        gm = [r["m_star"] for r in recs if r["m_star"] is not None]
+        if gx:
+            ax.plot(gx, gm, marker="o", ms=8, lw=2, color="tab:blue", label="measured m*")
+            s0 = next(r["suff"] for r in recs if r["m_star"] is not None)
+            ax.plot([r["x"] for r in recs], [gm[0] * r["suff"] / s0 for r in recs], "--",
+                    color="tab:blue", alpha=0.5, label="sufficiency shape")
+        for r in recs:
+            if r["m_star"] is None:
+                ax.scatter([r["x"]], [cfg["m_ceiling"]], marker="x", s=90, color="tab:blue")
+        ax.set_xlabel("sites (N_A)", fontsize=12)
+        ax.set_ylabel("m*  (single-shot (eps,delta))", fontsize=12)
+        ax.set_title(f"xx  |  {tag}  |  m* vs sites  |  K={recs[0]['K']}", fontsize=12)
+        ax.grid(True, alpha=0.3); ax.legend(fontsize=10)
+        fig.tight_layout()
+        path = os.path.join(plots, f"mstar_{tag}_vs_sites.png")
+        fig.savefig(_lp(path), dpi=130); plt.close(fig)
+        print(f"  saved {path}")
+    # ---- PART B: cheapest certified size per method, cost vs parameter, log y ----
+    colors = {"ours": "tab:blue", "tt_capped": "tab:orange", "kron": "tab:green",
+              "kron_pauli": "tab:red", "kressner": "tab:purple"}
+    for sub in subdirs(os.path.join(folder, "partB_race")):
+        recs = load_units(os.path.join(folder, "partB_race", sub))
+        if not recs:
+            continue
+        param = recs[0]["sweep"]
+        xs = sorted({r["x"] for r in recs})
+        best = {}                                   # (x, algo) -> cheapest passing unit
+        for r in recs:
+            if r["cost"] is None:
+                continue
+            key = (r["x"], r["algo"])
+            if key not in best or r["cost"] < best[key]["cost"]:
+                best[key] = r
+        summary["partB"][f"vs_{param}"] = {
+            str(x): {a: (None if (x, a) not in best else
+                         {"size": best[(x, a)]["size"], "M": best[(x, a)]["M"],
+                          "cost": best[(x, a)]["cost"]})
+                     for a in cfg["algos"]} for x in xs}
         fig, ax = plt.subplots(figsize=(9, 6))
-        for a in algos:
-            gx = [x for x, r in zip(xs, rows) if r[a] is not None]
-            gy = [r[a]["cost"] for r in rows if r[a] is not None]
+        for a in cfg["algos"]:
+            gx = [x for x in xs if (x, a) in best]
+            gy = [best[(x, a)]["cost"] for x in gx]
             if gx:
                 ax.plot(gx, gy, marker="o", ms=8, lw=2, color=colors[a], label=a)
-            for x, r in zip(xs, rows):
-                if r[a] is None:
+            for x in xs:
+                if (x, a) not in best:
                     ax.scatter([x], [1], marker="x", s=90, color=colors[a])
         ax.set_yscale("log")
-        ax.set_xlabel(xlabel, fontsize=12)
+        ax.set_xlabel(param, fontsize=12)
         ax.set_ylabel("contraction cost to reach (eps,delta)", fontsize=12)
-        ax.set_title(title, fontsize=12)
+        base = cfg["base"]
+        ax.set_title(f"xx  |  cost vs {param}  |  base sites={base['sites']} "
+                     f"K={base['K']} eps={cfg['eps']} delta={cfg['delta']}", fontsize=12)
         ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize=10)
         fig.tight_layout()
-        path = os.path.join(folder, fname)
-        fig.savefig(path, dpi=130); plt.close(fig)
-        print(f"   saved {os.path.abspath(path)}")
-
-    for spectrum in cfg["spectra"]:
-        sites_list = cfg["NA_list"]
-        algos = cfg["algos"]
-        res[spectrum] = {}
-        # ---- cost vs sites at base K ----
-        K, rows = cfg["base_K"], []
-        print(f"\n[compare | {spectrum} | vs sites | K={K}]  algos={algos}")
-        for sites in sites_list:
-            h = get_handle(cfg, spectrum, sites)
-            r = compare_point(cfg, h, K, algos)
-            rows.append(r)
-            print(f"   sites={sites}: " + "  ".join(
-                f"{a}=" + ("cens" if r[a] is None else f"{r[a]['cost']:.2e}")
-                for a in algos))
-        res[spectrum]["vs_sites"] = {"sites": sites_list, "rows": rows}
-        plot(sites_list, "sites", rows,
-             f"{spectrum}  |  cost to (eps,delta)  |  K={K}",
-             f"cost_vs_sites_{spectrum}_K{K}.png", algos)
-        # ---- cost vs K at base sites ----
-        sites = cfg["base_sites"][spectrum]
-        h, rows = get_handle(cfg, spectrum, sites), []
-        print(f"[compare | {spectrum} | vs K | sites={sites}]")
-        for K in cfg["k_list"]:
-            r = compare_point(cfg, h, K, algos)
-            rows.append(r)
-            print(f"   K={K}: " + "  ".join(
-                f"{a}=" + ("cens" if r[a] is None else f"{r[a]['cost']:.2e}")
-                for a in algos))
-        res[spectrum]["vs_K"] = {"K": cfg["k_list"], "rows": rows}
-        plot(cfg["k_list"], "K (trace power)", rows,
-             f"{spectrum}  |  cost to (eps,delta)  |  sites={sites}",
-             f"cost_vs_K_{spectrum}.png", algos)
-    return res
+        path = os.path.join(plots, f"cost_vs_{param}.png")
+        fig.savefig(_lp(path), dpi=130); plt.close(fig)
+        print(f"  saved {path}")
+    with open(_lp(os.path.join(plots, "summary.json")), "w") as f:
+        json.dump(summary, f, indent=2, default=str)
+    print(f"  saved {os.path.join(plots, 'summary.json')}")
 
 
-# %% [7] optional running-mean error-vs-cost curves -----------------------------------
-@torch.no_grad()
-def curves(cfg, folder):
-    """One panel: relative error of the running mean vs cumulative contraction cost.
-    Per step each method draws batch = base * m^batch_pow (LEADING-ORDER rule, never
-    the exact cost ratio); every method stops at the same cost budget."""
-    cc = cfg["curves"]
-    if not cc["enabled"]:
-        return None
-    spectrum, sites, K, m = cc["spectrum"], cc["sites"], cc["K"], cc["m"]
-    algos = cfg["algos"]
-    h = get_handle(cfg, spectrum, sites)
-    tv, res = h.true(K), {}
-    sks = {a: h.make(a, m) for a in algos}
-    costs = {a: h.cost(sk, K) for a, sk in sks.items()}
-    budget = cc["points"] * max(costs.values())
-    fig, ax = plt.subplots(figsize=(12, 7))
-    print(f"\n[curves | {spectrum} sites={sites} K={K} m={m}]  budget={budget:.2e}")
-    for a in algos:
-        sk, cost = sks[a], costs[a]
-        batch = max(1, cc["base_batch"] * m ** cc["batch_pow"][a])
-        preds, xs, cum, chunk = [], [], 0.0, sk.chunk(K)
-        while cum < budget:
-            drawn = 0
-            while drawn < batch:
-                c = min(chunk, batch - drawn)
-                preds.append(h.estimate(sk, [sk.draw(c) for _ in range(K)]))
-                drawn += c
-            cum += batch * cost
-            xs.append(cum)
-        preds = torch.cat(preds)
-        counts = torch.arange(1, len(xs) + 1) * batch
-        means = preds.cumsum(0)[counts - 1] / counts
-        rel = (means - tv).abs() / abs(tv)
-        b0 = int(len(rel) * cc["burn"])
-        ax.plot(xs[b0:], rel[b0:], lw=2, marker="o", ms=3,
-                label=f"{a}  err@end={rel[-1].item():.2e}")
-        res[a] = {"cost_per": cost, "batch": int(batch),
-                  "rel_end": float(rel[-1].item())}
-        print(f"   [{a:10s}] cost/sample={cost:9d} batch={batch:6d} "
-              f"steps={len(xs):4d} rel@end={rel[-1]:.3e}")
-    ax.set_xlabel("cumulative contraction cost", fontsize=12)
-    ax.set_ylabel("rel. error of running mean", fontsize=12)
-    ax.set_title(f"{spectrum}  |  sites={sites} K={K} m={m}  (burn={cc['burn']})",
-                 fontsize=12)
-    ax.grid(True, alpha=0.3); ax.legend(fontsize=10)
-    fig.tight_layout()
-    path = os.path.join(folder, f"curves_{spectrum}_sites{sites}_K{K}_m{m}.png")
-    fig.savefig(path, dpi=130); plt.close(fig)
-    print(f"   saved {os.path.abspath(path)}")
-    return res
-
-
-# %% [8] main -------------------------------------------------------------------------
+# %% [10] main ------------------------------------------------------------------------
 def main(cfg=None):
     cfg = dict(CONFIG if cfg is None else cfg)
-    torch.manual_seed(cfg["seed"])
     tag = f"eps{cfg['eps']}_delta{cfg['delta']}_d{cfg['d']}"
     folder = os.path.join(cfg["out_root"], tag)
-    os.makedirs(folder, exist_ok=True)
-    json.dump(cfg, open(os.path.join(folder, "config.json"), "w"), indent=2)
-    print(f"device={DEVICE}  dtype={str(DTYPE).split('.')[-1]}")
+    os.makedirs(_lp(folder), exist_ok=True)
+    json.dump(cfg, open(_lp(os.path.join(folder, "config.json")), "w"), indent=2)
     t0 = time.time()
-    res = {"mstar": mstar_part(cfg, folder),
-           "compare": comparison(cfg, folder),
-           "curves": curves(cfg, folder)}
-    json.dump(res, open(os.path.join(folder, "results.json"), "w"), indent=2,
-              default=str)
+    run(cfg, folder)
+    plot(cfg, folder)
     print(f"\ndone in {time.time() - t0:.0f}s  ->  {os.path.abspath(folder)}")
-    return res
 
 
 if __name__ == "__main__":
