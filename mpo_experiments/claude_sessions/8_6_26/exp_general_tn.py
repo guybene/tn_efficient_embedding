@@ -107,8 +107,8 @@ CONFIG = {
     "g_list": [1, 2, 4],               # g <= chi^2 asserted
     "algos": ["tree", "kron", "tt_capped", "kressner"],
     "tree_m_list": [2, 4, 8, 16, 32],  # our sizes tried, each with its own min batch M
-    "kressner_m_list": [2, 4, 8, 16, 32],  # ell stacked probes per copy, same (ell, M)
-                               # search; probe rank fixed by Thm 9
+    "kressner_m_list": [2, 4, 8],  # ell stacked probes per copy, same (ell, M) search;
+                               # probe rank fixed by Thm 9
                                # (bond = n_legs p, p = 2 ceil(log(1/delta)/2), see make_sketch)
     "tt_R_list": [2, 4],       # TT-probe bonds tried (capped at 4)
 

@@ -101,8 +101,8 @@ CONFIG = {
     "delta_list": [0.4, 0.3, 0.2, 0.1],
     "algos": ["ours", "tt_capped", "kron", "kron_pauli", "kressner"],
     "ours_m_list": [2, 4, 8, 16, 32],      # our sizes tried, each with its own min batch M
-    "kressner_m_list": [2, 4, 8, 16, 32],  # ell stacked probes per copy, same (ell, M)
-                               # search; probe rank fixed by Thm 9 (bond = sites p, see make)
+    "kressner_m_list": [2, 4, 8],  # ell stacked probes per copy, same (ell, M) search;
+                               # probe rank fixed by Thm 9 (bond = sites p, see make)
     "tt_R_list": [2, 4],       # rMPS probe bonds tried
 
     "out_root": os.path.join("results", "exp_xx"),
