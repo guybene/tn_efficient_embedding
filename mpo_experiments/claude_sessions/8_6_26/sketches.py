@@ -492,14 +492,20 @@ class XX_MPS:
         return ket @ ket.conj().T
 
 
-def build_xx_mps(NA, device="cpu"):
+def build_xx_mps(NA, chi_max, device="cpu"):
+    """The XX ground state (L = 2 NA sites) by TeNPy DMRG with the MPS bond capped
+    at chi_max, so rho_A has rank <= chi_max and the MPO bond chi^2 stays flat in
+    NA (uncapped, chi = 2^NA and the MPO cores explode).  The operator is the
+    capped MPS's rho_A exactly; its spectrum is the chi x chi Gram's."""
     L = 2 * NA
     model = XXZChain({"L": L, "Jxx": 2.0, "Jz": 0.0, "hz": 0.0,
                       "bc_MPS": "finite"})
     psi = MPS.from_product_state(model.lat.mps_sites(), ["up", "down"] * (L // 2),
                                  bc="finite")
-    dmrg.run(psi, model, {"trunc_params": {"svd_min": 1e-10},
-                          "max_E_err": 1e-12, "mixer": True})
+    dmrg.run(psi, model, {"trunc_params": {"svd_min": 1e-10, "chi_max": chi_max},
+                          "max_E_err": 1e-12, "mixer": True,
+                          "max_trunc_err": None})      # the cap IS a truncation: no check
+    psi.canonical_form()                                # so get_SL is the Schmidt spectrum
     op = XX_MPS([psi.get_B(i, form="B").to_ndarray() for i in range(L)], NA, device)
     lam = torch.as_tensor(psi.get_SL(NA), dtype=DTYPE) ** 2   # rho_A's eigenvalues
     assert torch.allclose(op.spectrum.sort().values, lam.sort().values,

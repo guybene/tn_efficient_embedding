@@ -119,7 +119,7 @@ def check_expectation_xx():
     # Ground truth (NA=4): the factored spectrum vs brute-force powers of the
     # materialized operator (build_xx_mps itself asserts our spectrum against
     # TeNPy's Schmidt spectrum at the cut).
-    op = build_xx_mps(4)
+    op = build_xx_mps(4, 16)                      # chi_max 16: no truncation at NA=4
     A_dense = op.dense_operator()
     for k in (1, 2):
         pk_exact = op.true_pk(k)                          # the spectrum from build
@@ -128,7 +128,7 @@ def check_expectation_xx():
         assert abs(pk_exact - pk_brute) < 1e-8, f"p_{k}: != dense"
 
     # Expectation test (NA=3), through the estimator, for every xx sketch.
-    op = build_xx_mps(3)
+    op = build_xx_mps(3, 16)
     for name, cls in XX_REGISTRY.items():
         sk = cls(3, op.chi, 4, bond=6) if name == "kressner" else cls(3, op.chi, 4)
         for K in (1, 2):

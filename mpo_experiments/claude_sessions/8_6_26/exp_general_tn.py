@@ -40,8 +40,9 @@ PART A -- THEOREM (ours only, the `tree` sketch): smallest m whose SINGLE estima
 PART B -- RACE (all methods): contraction cost (exact op count) to reach (eps,delta)
   vs g (the spectrum knob) and vs d (d is NOT raceable on the XX MPO: d=2 there).
   Every method runs a fixed list of sizes (tree: m, kressner: ell, tt_capped: bond R,
-  kron: rank-1); each size gets its smallest averaging batch M from one Monte-Carlo
-  pool; cost = M * per-sample cost; the plot keeps the cheapest size per method.
+  kron: rank-1); each size gets its smallest averaging batch M by an ADAPTIVE search
+  (trials M-means per candidate M, samples drawn lazily, doubling then bisection);
+  cost = M * per-sample cost; the plot keeps the cheapest size per method.
   One pickle per (parameter, value, method, size): a crash in one method or one
   size loses only that file.
 
@@ -87,9 +88,10 @@ CONFIG = {
     "m_ceiling": 96,           # m* search cap; the tree block holds an m^4 chi^2 d
                                # complex intermediate PER SAMPLE (~16 GB at m=96), and
                                # only censored points ever evaluate the ceiling
-    "pool": 400_000,           # Monte-Carlo pool of single estimates for the batch search
-    "min_groups": 40,          # least M-means needed to certify a pass rate; the batch
-                               # search is censored beyond M = pool/min_groups
+    "trials": 100,             # M-means per candidate M in the batch search; pass iff
+                               # >= (1-delta)*trials of them are within eps
+    "pool": 400_000,           # cap on single estimates per unit: the batch search is
+                               # censored beyond M = pool/trials
 
     "base": {"g": 4, "K": 2},  # the base point; every sweep moves one parameter
 
@@ -98,7 +100,7 @@ CONFIG = {
     "eps_list": [0.5, 0.4, 0.3, 0.25, 0.2],
     "delta_list": [0.4, 0.3, 0.2, 0.1],
     "d_list": [2, 3, 4, 5],            # chi = 2 <= min(d_list)
-    "K_list": [2, 3, 4, 5],
+    "K_list": [2, 3, 4, 5, 6, 7],        # thm2 only; K=1 is thm1
     "spectra": {"flat": [1.0, 1.0, 1.0, 1.0],      # same g/rank/d_Pi, different rho
                 "spiked": [1.0, 0.1, 0.1, 0.1]},
 
@@ -215,29 +217,41 @@ def single_estimates(sk, op, K, n):
     return torch.cat(ests)[:n].real.cpu()
 
 
-def min_batch(r, eps, delta, min_groups):
-    """Smallest averaging batch M whose M-sample mean is (eps,delta), on one pool r of
-    single estimates divided by the truth: the pass rate at M is the fraction of the
-    pool//M disjoint M-means within eps.  Binary search on M.  None (censored) once
-    fewer than min_groups disjoint means remain, i.e. beyond M = pool/min_groups."""
-    def ok(M):
-        gs = len(r) // M
-        if gs < min_groups:
-            return False
-        means = r[: gs * M].reshape(gs, M).mean(dim=1)
-        return ((means - 1.0).abs() <= eps).double().mean().item() >= 1.0 - delta
+def min_batch(sk, op, K, tv, eps, delta, trials, pool_cap):
+    """Smallest averaging batch M whose M-sample mean is within eps of the truth tv
+    with probability >= 1-delta, judged on `trials` disjoint M-means (pass iff at
+    least (1-delta)*trials of them are within eps).  ADAPTIVE: candidate M needs
+    trials*M single estimates, drawn lazily into one growing pool that every
+    candidate reuses; doubling search from M=1, then bisection in the last
+    interval.  M never sets a batch size: samples are drawn in memory-capped chunks
+    (single_estimates), M only slices the pool.  Censored (None) when trials*M
+    would exceed pool_cap.  Returns (M, pool, trace of (M, pass_rate))."""
+    pool, trace = torch.empty(0, dtype=torch.float64), []
 
-    ceil = len(r) // min_groups
-    if not ok(ceil):
-        return None
-    lo, hi = 1, ceil
+    def ok(M):
+        nonlocal pool
+        need = trials * M
+        if len(pool) < need:
+            pool = torch.cat([pool, single_estimates(sk, op, K, need - len(pool))])
+        means = pool[:need].reshape(trials, M).mean(dim=1) / tv
+        rate = ((means - 1.0).abs() <= eps).double().mean().item()
+        trace.append((M, rate))
+        return rate >= 1.0 - delta
+
+    M_max = pool_cap // trials
+    M = 1
+    while not ok(M):
+        if M >= M_max:
+            return None, pool, trace
+        M = min(2 * M, M_max)
+    lo, hi = M // 2 + 1, M
     while lo < hi:
         mid = (lo + hi) // 2
         if ok(mid):
             hi = mid
         else:
             lo = mid + 1
-    return lo
+    return lo, pool, trace
 
 
 # %% [6] PART A units: one m* search per pickle, resumable per evaluation -------------
@@ -335,9 +349,9 @@ def run_part_a(cfg, folder):
 
 # %% [7] PART B units: one (parameter, value, method, size) per pickle ----------------
 def run_race_unit(cfg, path, op, K, algo, size, context):
-    """One method at one size at one point: draw the Monte-Carlo pool, find the
-    smallest averaging batch M, cost = M * per-sample op count.  Written once,
-    complete; a crash mid-pool leaves nothing and the unit reruns alone."""
+    """One method at one size at one point: adaptive search for the smallest
+    averaging batch M (min_batch), cost = M * per-sample op count.  Written once,
+    complete; a crash mid-search leaves nothing and the unit reruns alone."""
     rec = load_pkl(path)
     if rec is not None and rec["done"]:
         return rec
@@ -345,12 +359,13 @@ def run_race_unit(cfg, path, op, K, algo, size, context):
     seed_for(cfg, path)
     sk = make_sketch(cfg, algo, size, op)
     tv = op.true_pk(K)
-    pool = single_estimates(sk, op, K, cfg["pool"])
-    M = min_batch(pool / tv, cfg["eps"], cfg["delta"], cfg["min_groups"])
+    M, pool, trace = min_batch(sk, op, K, tv, cfg["eps"], cfg["delta"],
+                               cfg["trials"], cfg["pool"])
     cost_per = estimate_cost(sk, op, K)
     rec = {**context, "K": K, "eps": cfg["eps"], "delta": cfg["delta"], "algo": algo,
            "size": size, "rows": sk.sketch_size(),
            "bond": getattr(sk, "bond", None), "true": tv, "pool": pool.numpy(),
+           "trials": cfg["trials"], "search": trace,
            "M": M, "cost_per_sample": cost_per,
            "cost": None if M is None else M * cost_per,
            "seconds": time.time() - t0, "peak_rss_mb": peak_rss_mb(), "done": True}

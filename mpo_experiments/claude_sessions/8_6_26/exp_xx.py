@@ -5,9 +5,10 @@ r"""
 EXPERIMENT 2: Renyi moments p_k = Tr(rho_A^k), k >= 2, of the XX ground state.
 
 OPERATOR: rho_A of the XX-chain ground state (L = 2*NA sites, open chain,
-H = J sum (s+ s- + h.c.)): TeNPy DMRG ground state (MPS) -> XX_MPS, the operator AS
-AN MPO: mpo_cores = per-site Kronecker MPS.MPS^* cores (bond chi^2, cut closed at
-build).  Never expanded.  Ground truth is exact (chi x chi Gram of the factor W) and
+H = J sum (s+ s- + h.c.)): TeNPy DMRG ground state (MPS) with the bond CAPPED at
+chi_max (CONFIG; uncapped chi = 2^NA and the MPO cores explode with NA) -> XX_MPS,
+the operator AS AN MPO: mpo_cores = per-site Kronecker MPS.MPS^* cores (bond
+chi^2, cut closed at build).  Never expanded.  Ground truth is exact (chi x chi Gram of the factor W) and
 cross-checked at build against TeNPy's Schmidt spectrum (asserted in build_xx_mps).
 The physical dimension is d = 2 (spin-1/2 chain): d is NOT a parameter here, it is
 raced on the general tree operator (exp_general_tn).
@@ -44,8 +45,9 @@ PART A -- THEOREM (ours only): smallest m whose SINGLE estimate is (eps,delta)-
 PART B -- RACE (all methods): contraction cost (exact op count) to reach (eps,delta)
   vs sites, K, eps, delta.  Every method runs a fixed list of sizes (ours: m,
   kressner: ell, tt_capped: bond R, kron/kron_pauli: rank-1); each size gets its
-  smallest averaging batch M from one Monte-Carlo pool; cost = M * per-sample cost;
-  the plot keeps the cheapest size per method.  One pickle per
+  smallest averaging batch M by an ADAPTIVE search (trials M-means per candidate M,
+  samples drawn lazily, doubling then bisection); cost = M * per-sample cost; the
+  plot keeps the cheapest size per method.  One pickle per
   (parameter, value, method, size).
 
 Every pickle is a dict: the point's full context, the raw estimates as numpy arrays
@@ -79,6 +81,8 @@ DEVICE = "cpu"      # server: 2GB/CUDA-11.4 GPU is unusable; 125GB RAM CPU is th
 # %% [2] CONFIG -----------------------------------------------------------------------
 CONFIG = {
     "d": 2,                    # fixed by the XX model (spin-1/2); tag only
+    "chi_max": 4,              # MPS bond cap in DMRG: rho_A rank <= 4, MPO bond 16,
+                               # flat in sites (uncapped chi = 2^sites explodes)
     "dist": "rademacher",
     "seed": 0,
 
@@ -86,24 +90,27 @@ CONFIG = {
     "delta": 0.2,
     "groups": 500,             # estimators per single-shot pass-rate
     "m_ceiling": 192,          # m* search cap
-    "pool": 300_000,           # Monte-Carlo pool for the batch search
-    "min_groups": 40,          # censoring floor: batch search stops at pool/min_groups
+    "trials": 100,             # M-means per candidate M in the batch search; pass iff
+                               # >= (1-delta)*trials of them are within eps
+    "pool": 300_000,           # cap on single estimates per unit: the batch search is
+                               # censored beyond M = pool/trials
 
     "base": {"sites": 4, "K": 2},   # the base point; every sweep moves one parameter
 
     # PART A (theorem, ours only): m* vs sites, thm1 (K=1) and thm2 (K=base)
-    "sites_list": [3, 4, 5],   # xx subsystem sizes N_A (L = 2*N_A)
+    "sites_list": [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15],   # N_A (L = 2*N_A)
 
     # PART B (race, all methods): cost to (eps,delta) vs each parameter
     "race_params": ["sites", "K", "eps", "delta"],
-    "K_list": [2, 3, 4],
+    "K_list": [1, 2, 3, 4, 5, 6, 7],
     "eps_list": [0.5, 0.4, 0.3, 0.25, 0.2],
     "delta_list": [0.4, 0.3, 0.2, 0.1],
     "algos": ["ours", "tt_capped", "kron", "kron_pauli", "kressner"],
     "ours_m_list": [2, 4, 8, 16, 32],      # our sizes tried, each with its own min batch M
     "kressner_m_list": [2, 4, 8],  # ell stacked probes per copy, same (ell, M) search;
                                # probe rank fixed by Thm 9 (bond = sites p, see make)
-    "tt_R_list": [2, 4],       # rMPS probe bonds tried
+    "tt_R_list": [2, 4, 8, 15], # rMPS probe ranks tried, capped at min(R, sites); 15 = the
+                               # theorem rank R ~ N (Kressner Thm 7, Camano) at every size
 
     "out_root": os.path.join("results", "exp_xx"),
 }
@@ -115,7 +122,7 @@ class XXHandle:
 
     def __init__(self, cfg, sites):
         self.cfg, self.sites = cfg, sites
-        self.op = build_xx_mps(sites, device=DEVICE)
+        self.op = build_xx_mps(sites, cfg["chi_max"], device=DEVICE)
         print(f"  [xx NA={sites}] chi={self.op.chi}  rho={self.op.intrinsic_dim():.2f}  "
               f"p2={self.op.true_pk(2):.5f}  (TeNPy Schmidt cross-check inside build OK)")
 
@@ -215,29 +222,41 @@ def single_estimates(sk, op, K, n):
     return torch.cat(ests)[:n].real.cpu()
 
 
-def min_batch(r, eps, delta, min_groups):
-    """Smallest averaging batch M whose M-sample mean is (eps,delta), on one pool r of
-    single estimates divided by the truth: the pass rate at M is the fraction of the
-    pool//M disjoint M-means within eps.  Binary search on M.  None (censored) once
-    fewer than min_groups disjoint means remain, i.e. beyond M = pool/min_groups."""
-    def ok(M):
-        gs = len(r) // M
-        if gs < min_groups:
-            return False
-        means = r[: gs * M].reshape(gs, M).mean(dim=1)
-        return ((means - 1.0).abs() <= eps).double().mean().item() >= 1.0 - delta
+def min_batch(sk, op, K, tv, eps, delta, trials, pool_cap):
+    """Smallest averaging batch M whose M-sample mean is within eps of the truth tv
+    with probability >= 1-delta, judged on `trials` disjoint M-means (pass iff at
+    least (1-delta)*trials of them are within eps).  ADAPTIVE: candidate M needs
+    trials*M single estimates, drawn lazily into one growing pool that every
+    candidate reuses; doubling search from M=1, then bisection in the last
+    interval.  M never sets a batch size: samples are drawn in memory-capped chunks
+    (single_estimates), M only slices the pool.  Censored (None) when trials*M
+    would exceed pool_cap.  Returns (M, pool, trace of (M, pass_rate))."""
+    pool, trace = torch.empty(0, dtype=torch.float64), []
 
-    ceil = len(r) // min_groups
-    if not ok(ceil):
-        return None
-    lo, hi = 1, ceil
+    def ok(M):
+        nonlocal pool
+        need = trials * M
+        if len(pool) < need:
+            pool = torch.cat([pool, single_estimates(sk, op, K, need - len(pool))])
+        means = pool[:need].reshape(trials, M).mean(dim=1) / tv
+        rate = ((means - 1.0).abs() <= eps).double().mean().item()
+        trace.append((M, rate))
+        return rate >= 1.0 - delta
+
+    M_max = pool_cap // trials
+    M = 1
+    while not ok(M):
+        if M >= M_max:
+            return None, pool, trace
+        M = min(2 * M, M_max)
+    lo, hi = M // 2 + 1, M
     while lo < hi:
         mid = (lo + hi) // 2
         if ok(mid):
             hi = mid
         else:
             lo = mid + 1
-    return lo
+    return lo, pool, trace
 
 
 # %% [6] PART A units: one m* search per pickle, resumable per evaluation -------------
@@ -316,9 +335,9 @@ def run_part_a(cfg, folder):
 
 # %% [7] PART B units: one (parameter, value, method, size) per pickle ----------------
 def run_race_unit(cfg, path, h, K, eps, delta, algo, size, context):
-    """One method at one size at one point: draw the Monte-Carlo pool, find the
-    smallest averaging batch M, cost = M * per-sample op count.  Written once,
-    complete; a crash mid-pool leaves nothing and the unit reruns alone."""
+    """One method at one size at one point: adaptive search for the smallest
+    averaging batch M (min_batch), cost = M * per-sample op count.  Written once,
+    complete; a crash mid-search leaves nothing and the unit reruns alone."""
     rec = load_pkl(path)
     if rec is not None and rec["done"]:
         return rec
@@ -326,12 +345,12 @@ def run_race_unit(cfg, path, h, K, eps, delta, algo, size, context):
     seed_for(cfg, path)
     sk = h.make(algo, size, delta)
     tv = h.op.true_pk(K)
-    pool = single_estimates(sk, h.op, K, cfg["pool"])
-    M = min_batch(pool / tv, eps, delta, cfg["min_groups"])
+    M, pool, trace = min_batch(sk, h.op, K, tv, eps, delta, cfg["trials"], cfg["pool"])
     cost_per = estimate_cost(sk, h.op, K)
     rec = {**context, "K": K, "eps": eps, "delta": delta, "algo": algo, "size": size,
            "rows": sk.rows(), "bond": getattr(sk, "bond", None), "true": tv,
-           "pool": pool.numpy(), "M": M, "cost_per_sample": cost_per,
+           "pool": pool.numpy(), "trials": cfg["trials"], "search": trace,
+           "M": M, "cost_per_sample": cost_per,
            "cost": None if M is None else M * cost_per,
            "seconds": time.time() - t0, "peak_rss_mb": peak_rss_mb(), "done": True}
     save_pkl(path, rec)
@@ -451,7 +470,7 @@ def plot(cfg, folder):
 # %% [10] main ------------------------------------------------------------------------
 def main(cfg=None):
     cfg = dict(CONFIG if cfg is None else cfg)
-    tag = f"eps{cfg['eps']}_delta{cfg['delta']}_d{cfg['d']}"
+    tag = f"eps{cfg['eps']}_delta{cfg['delta']}_d{cfg['d']}_chi{cfg['chi_max']}"
     folder = os.path.join(cfg["out_root"], tag)
     os.makedirs(_lp(folder), exist_ok=True)
     json.dump(cfg, open(_lp(os.path.join(folder, "config.json")), "w"), indent=2)
