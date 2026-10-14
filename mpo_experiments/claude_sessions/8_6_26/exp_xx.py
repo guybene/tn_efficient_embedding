@@ -39,7 +39,7 @@ FOLDER HIERARCHY  results/exp_xx/<tag>/
   plots/*.png, plots/summary.json, config.json
 
 PART A -- THEOREM (ours only): smallest m whose SINGLE estimate is (eps,delta)-
-  accurate, vs sites (the N parameter), thm1 (K=1) and thm2 (K=base).  The pickle
+  accurate, vs sites (the N parameter), thm1 (K=1) and thm2 (K=mstar_K).  The pickle
   is updated after EVERY pass-rate evaluation of the m* search (resumable).
 
 PART B -- RACE (all methods): contraction cost (exact op count) to reach (eps,delta)
@@ -88,16 +88,21 @@ CONFIG = {
 
     "eps": 0.3,
     "delta": 0.2,
-    "groups": 500,             # estimators per single-shot pass-rate
-    "m_ceiling": 192,          # m* search cap
+    "groups": 50,              # single estimates per m in the m* search; pass iff
+                               # >= (1-delta)*groups of them are within eps
+    "m_ceiling": 1024,         # m* search cap (grow-then-bisect: only censored points
+                               # ever evaluate it)
     "trials": 100,             # M-means per candidate M in the batch search; pass iff
                                # >= (1-delta)*trials of them are within eps
     "pool": 300_000,           # cap on single estimates per unit: the batch search is
                                # censored beyond M = pool/trials
 
-    "base": {"sites": 4, "K": 2},   # the base point; every sweep moves one parameter
+    "base": {"sites": 4, "K": 4},   # the RACE base point; every sweep moves one parameter
 
-    # PART A (theorem, ours only): m* vs sites, thm1 (K=1) and thm2 (K=base)
+    # PART A (theorem, ours only): m* vs sites, thm1 (K=1) and thm2 (K=mstar_K)
+    "mstar_K": 2,
+    "mstar_sites_list": [2, 3, 4, 5, 6, 7, 8],   # m* grows ~N^2: stop at 8
+    # PART B race sites
     "sites_list": [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15],   # N_A (L = 2*N_A)
 
     # PART B (race, all methods): cost to (eps,delta) vs each parameter
@@ -320,8 +325,8 @@ def run_mstar_unit(cfg, path, h, K, eps, delta, context):
 
 def run_part_a(cfg, folder):
     for tag in ("thm1", "thm2"):
-        K = 1 if tag == "thm1" else cfg["base"]["K"]
-        for sites in cfg["sites_list"]:
+        K = 1 if tag == "thm1" else cfg["mstar_K"]
+        for sites in cfg["mstar_sites_list"]:
             path = os.path.join(folder, "partA_theorem", tag, "vs_sites",
                                 f"sites={sites}", "ours.pkl")
             h = get_handle(cfg, sites)
