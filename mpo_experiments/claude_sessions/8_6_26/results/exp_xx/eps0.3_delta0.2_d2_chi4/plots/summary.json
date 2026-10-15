@@ -1,0 +1,694 @@
+{
+  "partA": {
+    "thm1_vs_sites": [
+      {
+        "x": 2,
+        "m_star": 12,
+        "suff": 33.2859141505999,
+        "seconds": 0.010975360870361328
+      },
+      {
+        "x": 3,
+        "m_star": 34,
+        "suff": 81.97509898030968,
+        "seconds": 0.14574885368347168
+      },
+      {
+        "x": 4,
+        "m_star": 61,
+        "suff": 146.06755448912938,
+        "seconds": 0.540067195892334
+      },
+      {
+        "x": 5,
+        "m_star": 64,
+        "suff": 225.56328067705897,
+        "seconds": 0.741126298904419
+      },
+      {
+        "x": 6,
+        "m_star": 69,
+        "suff": 320.46227754409847,
+        "seconds": 3.219454050064087
+      },
+      {
+        "x": 7,
+        "m_star": 96,
+        "suff": 430.7645450902478,
+        "seconds": 4.696001768112183
+      },
+      {
+        "x": 8,
+        "m_star": 115,
+        "suff": 556.470083315507,
+        "seconds": 9.313745021820068
+      }
+    ],
+    "thm2_vs_sites": [
+      {
+        "x": 2,
+        "m_star": 41,
+        "suff": 163.95019796061942,
+        "seconds": 0.024743080139160156
+      },
+      {
+        "x": 3,
+        "m_star": 74,
+        "suff": 389.51347863767836,
+        "seconds": 0.8879587650299072
+      },
+      {
+        "x": 4,
+        "m_star": 150,
+        "suff": 676.6898420311769,
+        "seconds": 15.308234930038452
+      },
+      {
+        "x": 5,
+        "m_star": 132,
+        "suff": 1025.4792881411151,
+        "seconds": 24.21512246131897
+      },
+      {
+        "x": 6,
+        "m_star": 229,
+        "suff": 1435.8818169674928,
+        "seconds": 60.72207498550415
+      },
+      {
+        "x": 7,
+        "m_star": 298,
+        "suff": 1907.8974285103102,
+        "seconds": 226.53867411613464
+      },
+      {
+        "x": 8,
+        "m_star": 215,
+        "suff": 2441.5261227695673,
+        "seconds": 83.69716596603394
+      }
+    ]
+  },
+  "partB": {
+    "vs_K": {
+      "1": {
+        "ours": {
+          "size": 2,
+          "M": 29,
+          "cost": 187978
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 40,
+          "cost": 251080
+        },
+        "kron": {
+          "size": 1,
+          "M": 52,
+          "cost": 123604
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 12,
+          "cost": 28524
+        },
+        "kressner": {
+          "size": 2,
+          "M": 15,
+          "cost": 8299230
+        }
+      },
+      "2": {
+        "ours": {
+          "size": 2,
+          "M": 91,
+          "cost": 1180270
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 311,
+          "cost": 3904294
+        },
+        "kron": {
+          "size": 1,
+          "M": 370,
+          "cost": 1758980
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 61,
+          "cost": 289994
+        },
+        "kressner": {
+          "size": 2,
+          "M": 71,
+          "cost": 78566470
+        }
+      },
+      "3": {
+        "ours": {
+          "size": 2,
+          "M": 192,
+          "cost": 3735936
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 1105,
+          "cost": 20808255
+        },
+        "kron": {
+          "size": 1,
+          "M": 1173,
+          "cost": 8364663
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 153,
+          "cost": 1091043
+        },
+        "kressner": {
+          "size": 2,
+          "M": 145,
+          "cost": 240679410
+        }
+      },
+      "4": {
+        "ours": {
+          "size": 2,
+          "M": 534,
+          "cost": 13855164
+        },
+        "tt_capped": {
+          "size": 8,
+          "M": 2048,
+          "cost": 230236160
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 518,
+          "cost": 4925144
+        },
+        "kressner": {
+          "size": 2,
+          "M": 304,
+          "cost": 672796384
+        }
+      },
+      "5": {
+        "ours": {
+          "size": 4,
+          "M": 241,
+          "cost": 32453060
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 755,
+          "cost": 8973175
+        },
+        "kressner": {
+          "size": 4,
+          "M": 96,
+          "cost": 1062076800
+        }
+      },
+      "6": {
+        "ours": {
+          "size": 4,
+          "M": 387,
+          "cost": 62540748
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 1974,
+          "cost": 28153188
+        },
+        "kressner": {
+          "size": 4,
+          "M": 199,
+          "cost": 2641918428
+        }
+      },
+      "7": {
+        "ours": {
+          "size": 4,
+          "M": 710,
+          "cost": 133869080
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 2746,
+          "cost": 45690694
+        },
+        "kressner": {
+          "size": 8,
+          "M": 68,
+          "cost": 4212527648
+        }
+      }
+    },
+    "vs_delta": {
+      "0.1": {
+        "ours": {
+          "size": 2,
+          "M": 1105,
+          "cost": 28670330
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 588,
+          "cost": 5590704
+        },
+        "kressner": {
+          "size": 2,
+          "M": 416,
+          "cost": 5092436544
+        }
+      },
+      "0.2": {
+        "ours": {
+          "size": 2,
+          "M": 698,
+          "cost": 18110308
+        },
+        "tt_capped": {
+          "size": 15,
+          "M": 1846,
+          "cost": 207527320
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 393,
+          "cost": 3736644
+        },
+        "kressner": {
+          "size": 2,
+          "M": 320,
+          "cost": 708206720
+        }
+      },
+      "0.3": {
+        "ours": {
+          "size": 4,
+          "M": 145,
+          "cost": 15618820
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 1896,
+          "cost": 47604768
+        },
+        "kron": {
+          "size": 1,
+          "M": 3000,
+          "cost": 28524000
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 192,
+          "cost": 1825536
+        },
+        "kressner": {
+          "size": 2,
+          "M": 261,
+          "cost": 577631106
+        }
+      },
+      "0.4": {
+        "ours": {
+          "size": 4,
+          "M": 60,
+          "cost": 6462960
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 1019,
+          "cost": 25585052
+        },
+        "kron": {
+          "size": 1,
+          "M": 2490,
+          "cost": 23674920
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 125,
+          "cost": 1188500
+        },
+        "kressner": {
+          "size": 2,
+          "M": 126,
+          "cost": 278856396
+        }
+      }
+    },
+    "vs_eps": {
+      "0.2": {
+        "ours": {
+          "size": 2,
+          "M": 1604,
+          "cost": 41617384
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 712,
+          "cost": 6769696
+        },
+        "kressner": {
+          "size": 2,
+          "M": 747,
+          "cost": 1653220062
+        }
+      },
+      "0.25": {
+        "ours": {
+          "size": 2,
+          "M": 892,
+          "cost": 23143832
+        },
+        "tt_capped": {
+          "size": 4,
+          "M": 2849,
+          "cost": 320284580
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 574,
+          "cost": 5457592
+        },
+        "kressner": {
+          "size": 4,
+          "M": 129,
+          "cost": 1141731012
+        }
+      },
+      "0.3": {
+        "ours": {
+          "size": 4,
+          "M": 159,
+          "cost": 17126844
+        },
+        "tt_capped": {
+          "size": 15,
+          "M": 1692,
+          "cost": 190214640
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 407,
+          "cost": 3869756
+        },
+        "kressner": {
+          "size": 2,
+          "M": 331,
+          "cost": 732551326
+        }
+      },
+      "0.4": {
+        "ours": {
+          "size": 2,
+          "M": 320,
+          "cost": 8302720
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 1259,
+          "cost": 31610972
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 159,
+          "cost": 1511772
+        },
+        "kressner": {
+          "size": 2,
+          "M": 145,
+          "cost": 320906170
+        }
+      },
+      "0.5": {
+        "ours": {
+          "size": 4,
+          "M": 35,
+          "cost": 3770060
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 678,
+          "cost": 17023224
+        },
+        "kron": {
+          "size": 1,
+          "M": 2043,
+          "cost": 19424844
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 133,
+          "cost": 1264564
+        },
+        "kressner": {
+          "size": 4,
+          "M": 19,
+          "cost": 168161932
+        }
+      }
+    },
+    "vs_sites": {
+      "2": {
+        "ours": {
+          "size": 2,
+          "M": 64,
+          "cost": 38528
+        },
+        "tt_capped": {
+          "size": 4,
+          "M": 471,
+          "cost": 250572
+        },
+        "kron": {
+          "size": 1,
+          "M": 257,
+          "cost": 54484
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 82,
+          "cost": 17384
+        },
+        "kressner": {
+          "size": 4,
+          "M": 45,
+          "cost": 999540
+        }
+      },
+      "3": {
+        "ours": {
+          "size": 2,
+          "M": 275,
+          "cost": 2066350
+        },
+        "tt_capped": {
+          "size": 2,
+          "M": 2266,
+          "cost": 15127816
+        },
+        "kron": {
+          "size": 1,
+          "M": 3000,
+          "cost": 7020000
+        },
+        "kron_pauli": {
+          "size": 1,
+          "M": 337,
+          "cost": 788580
+        },
+        "kressner": {
+          "size": 4,
+          "M": 53,
+          "cost": 66887060
+        }
+      },
+      "4": {
+        "ours": {
+          "size": 4,
+          "M": 137,
+          "cost": 14757092
+        },
+        "tt_capped": {
+          "size": 4,
+          "M": 2047,
+          "cost": 230123740
+        },
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 231,
+          "cost": 2196348
+        },
+        "kressner": {
+          "size": 2,
+          "M": 342,
+          "cost": 756895932
+        }
+      },
+      "5": {
+        "ours": {
+          "size": 8,
+          "M": 52,
+          "cost": 47204768
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 959,
+          "cost": 15992284
+        },
+        "kressner": {
+          "size": 4,
+          "M": 72,
+          "cost": 1857498912
+        }
+      },
+      "6": {
+        "ours": {
+          "size": 4,
+          "M": 647,
+          "cost": 175696732
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": {
+          "size": 1,
+          "M": 1501,
+          "cost": 35789844
+        },
+        "kressner": {
+          "size": 2,
+          "M": 320,
+          "cost": 4540301440
+        }
+      },
+      "7": {
+        "ours": {
+          "size": 4,
+          "M": 839,
+          "cost": 296566364
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 4,
+          "M": 105,
+          "cost": 11249542500
+        }
+      },
+      "8": {
+        "ours": {
+          "size": 8,
+          "M": 237,
+          "cost": 494721384
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 2,
+          "M": 425,
+          "cost": 19463243050
+        }
+      },
+      "9": {
+        "ours": {
+          "size": 16,
+          "M": 81,
+          "cost": 1078770960
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 4,
+          "M": 88,
+          "cost": 25685248864
+        }
+      },
+      "10": {
+        "ours": {
+          "size": 16,
+          "M": 127,
+          "cost": 1957744624
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 4,
+          "M": 122,
+          "cost": 53804951912
+        }
+      },
+      "12": {
+        "ours": {
+          "size": 16,
+          "M": 186,
+          "cost": 3647388576
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 8,
+          "M": 36,
+          "cost": 128988371232
+        }
+      },
+      "14": {
+        "ours": {
+          "size": 16,
+          "M": 239,
+          "cost": 5689136880
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 2,
+          "M": 561,
+          "cost": 227967076986
+        }
+      },
+      "15": {
+        "ours": {
+          "size": 16,
+          "M": 298,
+          "cost": 7718519456
+        },
+        "tt_capped": null,
+        "kron": null,
+        "kron_pauli": null,
+        "kressner": {
+          "size": 4,
+          "M": 112,
+          "cost": 237574063552
+        }
+      }
+    }
+  }
+}
