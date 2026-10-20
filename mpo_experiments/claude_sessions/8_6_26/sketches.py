@@ -17,7 +17,8 @@ W^H W, so estimating it is unnecessary): the input is A's network.  Every block
 is contracted over the FULL network, fresh per block, and E_k = Tr(prod_r M_r),
 S_{K+1} = S_1.  For the XX operator the input is the MPO (op.mpo_cores).
 Families: TREE_REGISTRY (tree, kron, tt_capped, kressner) and XX_REGISTRY (ours,
-tt_capped, kron, kron_pauli, kressner -- kron_pauli is Noa's partial basis, XX-only;
+solomonik, tt_capped, kron, kron_pauli, kressner -- kron_pauli is Noa's partial basis,
+XX-only; solomonik is masolomonik2022 Alg. 1 (Kronecker leaves + split gadgets);
 kressner is the STACKED TT probe of bujanovic2026tt Thm 9: ell independent rank-r
 probes per copy form an ell x ell block, rank r = N p, p = 2 ceil(log(1/delta)/2)).
 
@@ -674,6 +675,69 @@ class XXOurs(XXSketch):
         return max(32, min(8192, 1_000_000 // max(1, self.m ** 2 * self.chi)))
 
 
+def _split(m):
+    """The balanced gadget split of masolomonik2022: b1 * b2 = m with b1 <= b2 and
+    b1 the divisor of m closest to sqrt(m)."""
+    b1 = max(b for b in range(1, math.isqrt(m) + 1) if m % b == 0)
+    return b1, m // b1
+
+
+class XXSolomonik(XXSketch):
+    """masolomonik2022 Alg. 1 on the MPO (the construction of tensor_sketcher.py):
+    per copy a Kronecker leaf L_n (d, m) at every site and, for every site n >= 2, a
+    two-core gadget with halves GA_n (m, b1, m), GB_n (m, b2, m), b1 b2 = m, that
+    merges the leaf's m edge -- reshaped to (b1, b2) -- into the running sketch
+    edge; the output edge is the last gadget's.  rows = m.  Core std 1/sqrt(m)
+    everywhere (leaves and halves), so E[S^T S] = I.  Balanced split _split(m).
+    M: site 1 is ((L_1^row, A_1), L_1^col); every later site first FOLDS each
+    leaf into its own gadget halves, the half carrying the larger split part b2
+    first (an order-3 (d, m, m) core, like our S_n, at d m^3 (1 + b1)), and then
+    runs XXOurs's sweep ((W, S^row), A_n), S^col.  This is the cost-optimal order
+    of the sweep step (exhaustive search over all pairwise orders, 2026-10-20);
+    projecting the site through its two leaves first, as tensor_sketcher.py does,
+    is O(m^4 D^2) per site instead of O(m^3)."""
+    name = "solomonik"
+
+    def __init__(self, n_sites, chi, m, dist="rademacher", device="cpu"):
+        super().__init__(n_sites, chi, m, dist, device)
+        self.b1, self.b2 = _split(m)
+
+    def rows(self):
+        return self.m
+
+    def draw(self, B):
+        d, m, N, b1, b2 = self.d, self.m, self.n_sites, self.b1, self.b2
+        sc = 1.0 / math.sqrt(m)
+        return [_rand((B, N, d, m), self.dist, self.device) * sc,          # leaves L_n
+                _rand((B, N - 1, m, b1, m), self.dist, self.device) * sc,  # GA_n (in, b1, mid)
+                _rand((B, N - 1, m, b2, m), self.dist, self.device) * sc]  # GB_n (mid, b2, out)
+
+    def _fold(self, L, GA, GB):
+        """Leaf L (n, d, m) into its halves -> the order-3 core (n, in, d, out)."""
+        n = L.shape[0]
+        f = _ec("ndpq,ncqt->ndpct", L.reshape(n, self.d, self.b1, self.b2), GB)   # d m^3
+        return _ec("ndpct,nupc->nudt", f, GA)                                  # d b1 m^3
+
+    def M(self, fac_row, fac_col, op):
+        """Site 1 through the two leaves, then per site: fold both sides, sweep as
+        XXOurs.M:  W <- ((W . F_n^{(r)}) . A_n) . F_n^{(r+1)}."""
+        Lr, GAr, GBr = fac_row
+        Lc, GAc, GBc = [f.conj() for f in fac_col]
+        dt = Lr.dtype
+        t = _ec("ndu,xdez->nuez", Lr[:, 0], _dt(op.mpo_cores[0], dt))
+        t = _ec("nuez,nev->nuvz", t, Lc[:, 0])
+        for l in range(1, self.n_sites):
+            fr = self._fold(Lr[:, l], GAr[:, l - 1], GBr[:, l - 1])
+            fc = self._fold(Lc[:, l], GAc[:, l - 1], GBc[:, l - 1])
+            t = _ec("nuvw,nudp->nvwdp", t, fr)
+            t = _ec("nvwdp,wdeq->nvpeq", t, _dt(op.mpo_cores[l], dt))
+            t = _ec("nvpeq,nves->npsq", t, fc)
+        return t.reshape(t.shape[0], self.m, self.m)    # trailing bond 1 -> (n, m, m)
+
+    def chunk(self, K):
+        return max(32, min(8192, 1_000_000 // max(1, self.m ** 2 * self.chi)))
+
+
 class XXKressner(XXSketch):
     """Kressner's STACKED TT probe (bujanovic2026tt Thm 9) on the MPO: per copy,
     ell = m independent TT probes over the sites, each of rank `bond` (Thm 9:
@@ -724,7 +788,7 @@ class XXKressner(XXSketch):
                                                   * self.chi ** 2)))
 
 
-XX_REGISTRY = {"ours": XXOurs, "tt_capped": XXTTCapped,
+XX_REGISTRY = {"ours": XXOurs, "solomonik": XXSolomonik, "tt_capped": XXTTCapped,
                "kron": XXKron, "kron_pauli": XXKronPauli,
                "kressner": XXKressner}
 

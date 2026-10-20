@@ -129,6 +129,26 @@ def check_expectation_xx():
 
     # Expectation test (NA=3), through the estimator, for every xx sketch.
     op = build_xx_mps(3, 16)
+
+    # Wiring, one deterministic case for solomonik: M must equal S_row A S_col^H
+    # with S contracted explicitly from the drawn leaves and gadget halves
+    # (leaf 1 into gadget 1, leaf 2 into gadget 2) and A = dense_operator().
+    A = op.dense_operator().to(CDTYPE)
+    sk = XX_REGISTRY["solomonik"](3, op.chi, 4)
+    fac_row, fac_col = sk.draw(1), sk.draw(1)
+
+    def dense_S(fac):
+        L, GA, GB = (f[0] for f in fac)
+        L1 = L[1].reshape(sk.d, sk.b1, sk.b2)
+        L2 = L[2].reshape(sk.d, sk.b1, sk.b2)
+        S = torch.einsum("au,bpq,upc,cqv,ers,vrf,fsm->abem",
+                         L[0], L1, GA[0], GB[0], L2, GA[1], GB[1])
+        return S.reshape(sk.d ** 3, sk.m).T.to(CDTYPE)
+    block = sk.M(fac_row, fac_col, op)[0].to(CDTYPE)
+    assert torch.allclose(block, dense_S(fac_row) @ A @ dense_S(fac_col).conj().T,
+                          atol=1e-10), "solomonik: M != S_row A S_col^H"
+    print("    wiring: M == S_row A S_col^H (dense reference)  solomonik  ok")
+
     for name, cls in XX_REGISTRY.items():
         sk = cls(3, op.chi, 4, bond=6) if name == "kressner" else cls(3, op.chi, 4)
         for K in (1, 2):
