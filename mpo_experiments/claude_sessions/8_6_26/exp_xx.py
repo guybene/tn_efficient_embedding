@@ -81,8 +81,8 @@ CONFIG = {
     "K_list": [1, 2, 3, 4, 5, 6, 7],
     "algos": ["ours", "solomonik", "kressner"],
     "m_list": [2, 4, 8, 16, 32, 64, 128],   # one pair of figures per m; every method at that m
-    "kressner_ell_list": [1, 2, 4, 8],      # stacked probes per copy (ell=1: one TT probe)
-    "trials": 100,                 # single estimates averaged into ONE estimate per point;
+    "kressner_ell_list": [1, 2, 4],         # stacked probes per copy (ell=1: one TT probe)
+    "trials": 500,                 # single estimates averaged into ONE estimate per point;
                                    # kressner averages trials // ell^2
 
     # PART A (theorem, ours only; not called from run())
@@ -371,8 +371,10 @@ def plot(cfg, folder):
     plots = os.path.join(folder, "plots")
     os.makedirs(_lp(plots), exist_ok=True)
     summary = {"race": {}, "partA": {}}
-    colors = {"ours": "tab:blue", "solomonik": "tab:green", "kressner": "tab:purple"}
-    styles = {1: "-", 2: "--", 4: ":", 8: "-."}       # kressner ell
+    # one (color, marker) per curve; kressner gets its own color and marker per ell
+    look = {("ours", 1): ("tab:blue", "o"), ("solomonik", 1): ("tab:green", "s"),
+            ("kressner", 1): ("tab:purple", "^"), ("kressner", 2): ("tab:red", "v"),
+            ("kressner", 4): ("tab:orange", "D"), ("kressner", 8): ("tab:brown", "P")}
     # ---- RACE: per parameter and per m, two panels (cost, error) vs x ----
     for sub in subdirs(os.path.join(folder, "race")):
         recs = load_units(os.path.join(folder, "race", sub))
@@ -397,11 +399,17 @@ def plot(cfg, folder):
                              if (r["algo"], r["ell"]) == (a, e))
                 xs = [p[0] for p in pts]
                 lab = a if a != "kressner" else f"kressner ell={e}"
-                ax_c.plot(xs, [p[1] for p in pts], marker="o", ms=6, lw=2,
-                          color=colors[a], ls=styles.get(e, "-"), label=lab)
-                ax_e.plot(xs, [p[2] for p in pts], marker="o", ms=6, lw=2,
-                          color=colors[a], ls=styles.get(e, "-"), label=lab)
-            ax_c.set_yscale("log"); ax_e.set_yscale("log")
+                col, mk = look[(a, e)]
+                ax_c.plot(xs, [p[1] for p in pts], marker=mk, ms=7, lw=2, color=col, label=lab)
+                # relative error clipped at 1 (an estimate off by more than 100% is
+                # drawn at 1 with a cross); y-axis fixed to [1e-3, 1]
+                errs = [min(p[2], 1.0) for p in pts]
+                ax_e.plot(xs, errs, marker=mk, ms=7, lw=2, color=col, label=lab)
+                over = [(x, 1.0) for x, p in zip(xs, pts) if p[2] > 1.0]
+                if over:
+                    ax_e.scatter([o[0] for o in over], [o[1] for o in over], marker="x",
+                                 s=120, color=col, zorder=5)
+            ax_c.set_yscale("log"); ax_e.set_yscale("log"); ax_e.set_ylim(1e-3, 1.0)
             ax_c.set_ylabel("contraction cost of the estimate", fontsize=12)
             ax_e.set_ylabel("relative error of the estimate", fontsize=12)
             ax_e.set_xlabel(param, fontsize=12)
