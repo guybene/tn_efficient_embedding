@@ -1,0 +1,71 @@
+{
+  "d": 2,
+  "chi_max": 4,
+  "dist": "rademacher",
+  "seed": 0,
+  "base": {
+    "sites": 4,
+    "K": 4
+  },
+  "race_params": [
+    "sites",
+    "K"
+  ],
+  "sites_list": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    30
+  ],
+  "K_list": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "algos": [
+    "ours",
+    "solomonik",
+    "kressner"
+  ],
+  "m_list": [
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "kressner_ell_list": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "trials": 100,
+  "eps": 0.3,
+  "delta": 0.2,
+  "groups": 50,
+  "m_ceiling": 1024,
+  "mstar_K": 2,
+  "mstar_sites_list": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "out_root": "results/exp_xx"
+}
