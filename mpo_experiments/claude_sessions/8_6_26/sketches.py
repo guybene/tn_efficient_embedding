@@ -17,8 +17,9 @@ W^H W, so estimating it is unnecessary): the input is A's network.  Every block
 is contracted over the FULL network, fresh per block, and E_k = Tr(prod_r M_r),
 S_{K+1} = S_1.  For the XX operator the input is the MPO (op.mpo_cores).
 Families: TREE_REGISTRY (tree, kron, tt_capped, kressner) and XX_REGISTRY (ours,
-solomonik, tt_capped, kron, kron_pauli, kressner -- kron_pauli is Noa's partial basis,
-XX-only; solomonik is masolomonik2022 Alg. 1 (Kronecker leaves + split gadgets);
+solomonik, open_tt, tt_capped, kron, kron_pauli, kressner -- kron_pauli is Noa's
+partial basis, XX-only; solomonik is masolomonik2022 Alg. 1 (Kronecker leaves +
+split gadgets); open_tt is the tensor-train case of masolomonik2022 Cor. 3.2;
 kressner is the STACKED TT probe of bujanovic2026tt Thm 9: ell independent rank-r
 probes per copy form an ell x ell block, rank r = N p, p = 2 ceil(log(1/delta)/2)).
 
@@ -516,7 +517,8 @@ def build_xx_mps(NA, chi_max, device="cpu"):
 
 # ----------------------------------------------------------------------------
 # XX sketches.  M(fac_row, fac_col, op): the input is op.mpo_cores; one L->R
-# sweep per block, per site ((W, Srow_n), A_n) then Scol_n (alg:mpop).  Returns
+# sweep per block, per internal site ((W, Srow_n), A_n) then Scol_n (alg:mpop);
+# ours / solomonik / open_tt start with A_1 . A_2 and end with W . A_N.  Returns
 # the block S_row A S_col^H, (batch, rows, rows).  kron sketches EVERYTHING
 # beforehand (each vector onto its own core), then runs the pure sweep.
 # ----------------------------------------------------------------------------
@@ -658,17 +660,27 @@ class XXOurs(XXSketch):
 
     def M(self, fac_row, fac_col, op):
         """alg:mpop's sweep, verbatim from the paper:
-            W <- ((S_1^{(r)} . A_1) . A_2) . S_1^{(r+1)}
-            W <- ((W . S_n^{(r)}) . A_{n+1}) . S_n^{(r+1)}   for n = 2..N-1."""
+            W   <- ((A_1 . A_2) . S_1^{(r)}) . S_1^{(r+1)}
+            W   <- ((W . S_n^{(r)}) . A_{n+1}) . S_n^{(r+1)}   for n = 2..N-2
+            M_r <- ((W . A_N) . S_{N-1}^{(r)}) . S_{N-1}^{(r+1)}.
+        The first and last step are the opt_einsum-optimal orders for m >= D >= d
+        (2026-11-06); A_1 is broadcast over the batch by hand so every sample
+        contracts the full network (the tally stays batch-linear)."""
         dt = fac_row[0].dtype
         cc = [f.conj() for f in fac_col]
-        t = _ec("nabu,xaez->nbuez", fac_row[0], _dt(op.mpo_cores[0], dt))
-        t = _ec("nbuez,zbfw->nuefw", t, _dt(op.mpo_cores[1], dt))
-        t = _ec("nuefw,nefv->nuvw", t, cc[0])
-        for l in range(1, self.n_sites - 1):
+        N, B = self.n_sites, fac_row[0].shape[0]
+        a1 = _dt(op.mpo_cores[0], dt).unsqueeze(0).expand(B, -1, -1, -1, -1)
+        t = _ec("nxaez,zbfw->naebfw", a1, _dt(op.mpo_cores[1], dt))            # d^4 x1 x2
+        t = _ec("naebfw,nabu->nefuw", t, fac_row[0])                           # d^4 x2 m
+        t = _ec("nefuw,nefv->nuvw", t, cc[0])                                  # d^2 x2 m^2
+        for l in range(1, N - 2):
             t = _ec("nuvw,nudp->nvwdp", t, fac_row[l])
             t = _ec("nvwdp,wdeq->nvpeq", t, _dt(op.mpo_cores[l + 1], dt))
             t = _ec("nvpeq,nves->npsq", t, cc[l])
+        if N > 2:                                        # last site: W . A_N first
+            t = _ec("nuvw,wdeq->nuvdeq", t, _dt(op.mpo_cores[N - 1], dt))      # d^2 m^2 w
+            t = _ec("nuvdeq,nudp->nvepq", t, fac_row[N - 2])                   # d^2 m^3
+            t = _ec("nvepq,nves->npsq", t, cc[N - 2])                          # d m^3
         return t.reshape(t.shape[0], self.m, self.m)    # trailing bond 1 -> (n, m, m)
 
     def chunk(self, K):
@@ -689,13 +701,15 @@ class XXSolomonik(XXSketch):
     merges the leaf's m edge -- reshaped to (b1, b2) -- into the running sketch
     edge; the output edge is the last gadget's.  rows = m.  Core std 1/sqrt(m)
     everywhere (leaves and halves), so E[S^T S] = I.  Balanced split _split(m).
-    M: site 1 is ((L_1^row, A_1), L_1^col); every later site first FOLDS each
-    leaf into its own gadget halves, the half carrying the larger split part b2
-    first (an order-3 (d, m, m) core, like our S_n, at d m^3 (1 + b1)), and then
-    runs XXOurs's sweep ((W, S^row), A_n), S^col.  This is the cost-optimal order
-    of the sweep step (exhaustive search over all pairwise orders, 2026-10-20);
-    projecting the site through its two leaves first, as tensor_sketcher.py does,
-    is O(m^4 D^2) per site instead of O(m^3)."""
+    M: sites 1 and 2 are merged per side into one (d, d, m) core (leaf 1, leaf 2
+    and the first gadget) and attached after A_1 . A_2; every later site first
+    FOLDS each leaf into its own gadget halves, the half carrying the larger
+    split part b2 first (an order-3 (d, m, m) core, like our S_n, at
+    d m^3 (1 + b1)), and then runs XXOurs's step.  These are the cost-optimal
+    orders of the start, internal and end step for m >= D >= d (opt_einsum
+    'optimal' + exhaustive search, 2026-11-06); projecting the site through its
+    two leaves first, as tensor_sketcher.py does, is O(m^4 D^2) per site instead
+    of O(m^3)."""
     name = "solomonik"
 
     def __init__(self, n_sites, chi, m, dist="rademacher", device="cpu"):
@@ -718,24 +732,69 @@ class XXSolomonik(XXSketch):
         f = _ec("ndpq,ncqt->ndpct", L.reshape(n, self.d, self.b1, self.b2), GB)   # d m^3
         return _ec("ndpct,nupc->nudt", f, GA)                                  # d b1 m^3
 
+    def _start_core(self, L, GA, GB):
+        """Sites 1 and 2 of one side: leaf L_1, leaf L_2 and the first gadget's two
+        halves -> one (n, d, d, out) core, like our S_1.  Order ((L_1, GA), L_2), GB."""
+        n = L.shape[0]
+        x = _ec("neu,nuas->neas", L[:, 0], GA)                                 # d b1 m^2
+        x = _ec("neas,ngab->nesgb", x, L[:, 1].reshape(n, self.d, self.b1, self.b2))  # d^2 m^2
+        return _ec("nesgb,nsbp->negp", x, GB)                                  # d^2 b2 m^2
+
     def M(self, fac_row, fac_col, op):
-        """Site 1 through the two leaves, then per site: fold both sides, sweep as
-        XXOurs.M:  W <- ((W . F_n^{(r)}) . A_n) . F_n^{(r+1)}."""
+        """The opt_einsum-optimal order of every step for m >= D >= d (2026-11-06):
+          start (sites 1, 2): one (d, d, m) core per side (_start_core), then
+                              W <- ((A_1 . A_2) . C^{(r)}) . C^{(r+1)}
+          site n = 3..N-1:    fold both sides, W <- ((W . F_n^{(r)}) . A_n) . F_n^{(r+1)}
+          site N:             fold both sides, M_r <- ((W . A_N) . F_N^{(r)}) . F_N^{(r+1)}."""
         Lr, GAr, GBr = fac_row
         Lc, GAc, GBc = [f.conj() for f in fac_col]
         dt = Lr.dtype
-        t = _ec("ndu,xdez->nuez", Lr[:, 0], _dt(op.mpo_cores[0], dt))
-        t = _ec("nuez,nev->nuvz", t, Lc[:, 0])
-        for l in range(1, self.n_sites):
+        N, B = self.n_sites, Lr.shape[0]
+        cr = self._start_core(Lr, GAr[:, 0], GBr[:, 0])
+        cc = self._start_core(Lc, GAc[:, 0], GBc[:, 0])
+        a1 = _dt(op.mpo_cores[0], dt).unsqueeze(0).expand(B, -1, -1, -1, -1)
+        t = _ec("nxaez,zbfw->naebfw", a1, _dt(op.mpo_cores[1], dt))            # d^4 x1 x2
+        t = _ec("naebfw,nabu->nefuw", t, cr)                                   # d^4 x2 m
+        t = _ec("nefuw,nefv->nuvw", t, cc)                                     # d^2 x2 m^2
+        for l in range(2, N - 1):
             fr = self._fold(Lr[:, l], GAr[:, l - 1], GBr[:, l - 1])
             fc = self._fold(Lc[:, l], GAc[:, l - 1], GBc[:, l - 1])
             t = _ec("nuvw,nudp->nvwdp", t, fr)
             t = _ec("nvwdp,wdeq->nvpeq", t, _dt(op.mpo_cores[l], dt))
             t = _ec("nvpeq,nves->npsq", t, fc)
+        if N > 2:                                        # last site: W . A_N first
+            fr = self._fold(Lr[:, N - 1], GAr[:, N - 2], GBr[:, N - 2])
+            fc = self._fold(Lc[:, N - 1], GAc[:, N - 2], GBc[:, N - 2])
+            t = _ec("nuvw,wdeq->nuvdeq", t, _dt(op.mpo_cores[N - 1], dt))      # d^2 m^2 w
+            t = _ec("nuvdeq,nudp->nvepq", t, fr)                               # d^2 m^3
+            t = _ec("nvepq,nves->npsq", t, fc)                                 # d m^3
         return t.reshape(t.shape[0], self.m, self.m)    # trailing bond 1 -> (n, m, m)
 
     def chunk(self, K):
         return max(32, min(8192, 1_000_000 // max(1, self.m ** 2 * self.chi)))
+
+
+class XXOpenTT(XXOurs):
+    """The open TT of masolomonik2022 Cor. 3.2 on the MPO: N cores per sample, one
+    per site, every edge m -- C_1 (d, m) on site 1 and C_n (m, d, m) on site n,
+    n = 2..N; the block's output legs are C_N's.  rows = m.  Core std 1/sqrt(m).
+    M: C_1 and C_2 are first merged per side into a (d, d, m) core (d^2 m^2 each;
+    the opt_einsum-optimal start for m >= D >= d, 2026-11-06), which is the shape
+    of our S_1; the rest is XXOurs.M.  Cost = ours + 2 d^2 m^2 per block."""
+    name = "open_tt"
+
+    def draw(self, B):
+        d, m, N = self.d, self.m, self.n_sites
+        sc = 1.0 / math.sqrt(m)
+        cores = [_rand((B, d, m), self.dist, self.device) * sc]        # C_1 (e1, mu_1)
+        cores += [_rand((B, m, d, m), self.dist, self.device) * sc
+                  for _ in range(N - 1)]                # C_n (mu_{n-1}, e_n, mu_n)
+        return cores
+
+    def M(self, fac_row, fac_col, op):
+        mr = _ec("neu,nugp->negp", fac_row[0], fac_row[1])                     # d^2 m^2
+        mc = _ec("neu,nugp->negp", fac_col[0], fac_col[1])                     # d^2 m^2
+        return super().M([mr] + list(fac_row[2:]), [mc] + list(fac_col[2:]), op)
 
 
 class XXKressner(XXSketch):
@@ -788,8 +847,8 @@ class XXKressner(XXSketch):
                                                   * self.chi ** 2)))
 
 
-XX_REGISTRY = {"ours": XXOurs, "solomonik": XXSolomonik, "tt_capped": XXTTCapped,
-               "kron": XXKron, "kron_pauli": XXKronPauli,
+XX_REGISTRY = {"ours": XXOurs, "solomonik": XXSolomonik, "open_tt": XXOpenTT,
+               "tt_capped": XXTTCapped, "kron": XXKron, "kron_pauli": XXKronPauli,
                "kressner": XXKressner}
 
 

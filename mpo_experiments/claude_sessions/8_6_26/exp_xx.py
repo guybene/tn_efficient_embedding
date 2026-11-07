@@ -13,12 +13,15 @@ of the factor W) and cross-checked at build against TeNPy's Schmidt spectrum
 (asserted in build_xx_mps).  The physical dimension is d = 2 (spin-1/2 chain).
 
 THE ESTIMATOR: the MPO is the input; every block S_r A S_{r+1}^T is one L->R sweep
-over the MPO cores, fresh per block, in the cost-optimal pairwise order of each
-method (exhaustive search over all orders of one sweep step, 2026-10-20).
+over the MPO cores, fresh per block.  ours / solomonik / open_tt use the cost-optimal
+pairwise order of the start, internal and end step for m >= D >= d (opt_einsum
+'optimal' + exhaustive search over all orders of each step, 2026-11-06); kressner
+uses the order of 2026-10-20 (internal step searched only).
 
 THE RACE -- choosing the sketch for k >= 2 (CONFIG algos), all at the same m:
   ours        OUR sketch (alg:mpop): one order-3 core per site, output edge m
   solomonik   masolomonik2022 Alg. 1: Kronecker leaf d -> m per site + split gadget
+  open_tt     masolomonik2022 Cor. 3.2 tensor train: one core per site, every edge m
   kressner    stacked TT probes (bujanovic2026tt): ell independent TT probes of bond
               m per copy, stacked into an ell x ell block; ell from kressner_ell_list
 Each race point = one method at one m (and ell) at one x: `trials` single estimates
@@ -132,28 +135,34 @@ def cost_formula(name, bonds, d, m, ell, K, b1=1):
     contraction of the method's sweep (sketches.py), in the MPO's actual bonds
     bonds = [x_0, ..., x_N] (x_n = bond left of site n; x_0 = x_N = 1), N sites.
     Asserted equal to the measured _ec tally at every race unit.
-      ours       site 1+2: d^3 m x_1 + d^3 m x_1 x_2 + d^2 m^2 x_2
-                 site n>=3 (bonds w, q): d m^3 (w + q) + d^2 m^2 w q
-                 chain: (K-1) m^3 + m
-      solomonik  site 1: d^2 m x_1 + d m^2 x_1
-                 site n>=2: 2 (d m^3 + d b1 m^3) [folds] + d m^3 (w + q) + d^2 m^2 w q
+    ours / solomonik / open_tt share the three steps (2026-11-06 orders):
+      start, sites 1+2 (A_1.A_2, then the two (d,d,m) cores):
+                 START = d^4 x_1 x_2 + d^4 x_2 m + d^2 x_2 m^2
+      internal site n = 3..N-1 (bonds w, q): INT = d m^3 (w + q) + d^2 m^2 w q
+      end, site N (bond w, only if N > 2; W.A_N first):
+                 END = d^2 m^2 w + d^2 m^3 + d m^3
+      ours       START + sum INT + END;  chain: (K-1) m^3 + m
+      open_tt    ours + 2 d^2 m^2  (merging C_1, C_2 per side)
+      solomonik  start cores: 2 (d b1 m^2 + d^2 m^2 + d^2 b2 m^2), then START;
+                 every site n >= 3 adds the folds 2 (d m^3 + d b1 m^3) to INT / END;
                  chain: (K-1) m^3 + m
       kressner   site 1: ell d^2 m x_1 + ell^2 m^2 d x_1
                  site 2..N-1: ell^2 (m^3 d (w + q) + m^2 d^2 w q)
                  site N (bond w): ell^2 (m^2 d w + m d^2 w + m d)
                  chain: (K-1) ell^3 + ell"""
     N = len(bonds) - 1
-    if name == "ours":
-        block = d ** 3 * m * bonds[1] + d ** 3 * m * bonds[1] * bonds[2] + d ** 2 * m ** 2 * bonds[2]
-        for n in range(2, N):
+    if name in ("ours", "open_tt", "solomonik"):
+        fold = 2 * (d * m ** 3 + d * b1 * m ** 3) if name == "solomonik" else 0
+        block = d ** 4 * bonds[1] * bonds[2] + d ** 4 * bonds[2] * m + d ** 2 * bonds[2] * m ** 2
+        for n in range(2, N - 1):
             w, q = bonds[n], bonds[n + 1]
-            block += d * m ** 3 * (w + q) + d ** 2 * m ** 2 * w * q
-        return K * block + (K - 1) * m ** 3 + m
-    if name == "solomonik":
-        block = d ** 2 * m * bonds[1] + d * m ** 2 * bonds[1]
-        for n in range(1, N):
-            w, q = bonds[n], bonds[n + 1]
-            block += 2 * (d * m ** 3 + d * b1 * m ** 3) + d * m ** 3 * (w + q) + d ** 2 * m ** 2 * w * q
+            block += fold + d * m ** 3 * (w + q) + d ** 2 * m ** 2 * w * q
+        if N > 2:
+            block += fold + d ** 2 * m ** 2 * bonds[N - 1] + d ** 2 * m ** 3 + d * m ** 3
+        if name == "open_tt":
+            block += 2 * d ** 2 * m ** 2
+        if name == "solomonik":
+            block += 2 * (d * b1 * m ** 2 + d ** 2 * m ** 2 + d ** 2 * (m // b1) * m ** 2)
         return K * block + (K - 1) * m ** 3 + m
     if name == "kressner":
         block = ell * d ** 2 * m * bonds[1] + ell ** 2 * m ** 2 * d * bonds[1]
@@ -373,6 +382,7 @@ def plot(cfg, folder):
     summary = {"race": {}, "partA": {}}
     # one (color, marker) per curve; kressner gets its own color and marker per ell
     look = {("ours", 1): ("tab:blue", "o"), ("solomonik", 1): ("tab:green", "s"),
+            ("open_tt", 1): ("tab:cyan", "X"),
             ("kressner", 1): ("tab:purple", "^"), ("kressner", 2): ("tab:red", "v"),
             ("kressner", 4): ("tab:orange", "D"), ("kressner", 8): ("tab:brown", "P")}
     # ---- RACE: per parameter and per m, two panels (cost, error) vs x ----
