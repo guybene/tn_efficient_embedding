@@ -35,17 +35,17 @@ from exp_xx import (cost_formula, single_estimates, seed_for, load_pkl, save_pkl
 
 # %% [2] CONFIG --------------------------------------------------------------------------
 CONFIG = {
-    "chi_max": 8,               # MPS bond cap: rho_A rank <= 8, MPO bond 64
+    "chi_max": 3,               # MPS bond cap: rho_A rank <= 3, MPO bond D = chi^2 = 9
     "dist": "rademacher",
     "seed": 0,
 
     "base": {"sites": 8, "K": 4},     # the fixed parameter of each sweep
     "race_params": ["sites"],         # ["sites", "K"]
-    "sites_list": list(range(3, 51)),  # N_A (L = 2 N_A)
+    "sites_list": list(range(3, 41)),  # N_A (L = 2 N_A)
     "K_list": [1, 2, 3, 4, 5, 6, 7],
     "algos": ["ours", "solomonik", "open_tt"],
     "m_factor": 1,              # m = m_factor * sites at every point (m = O(N))
-    "M": 500,                   # single estimates averaged into ONE estimate per point
+    "M": 1000,                  # single estimates averaged into ONE estimate per point
     "chunk_budget": 1_000_000,  # samples per batch = budget // (m^2 chi), >= 4
 
     "out_root": os.path.join("results", "candidate_search"),
