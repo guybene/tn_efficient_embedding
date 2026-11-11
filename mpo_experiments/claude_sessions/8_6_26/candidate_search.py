@@ -44,8 +44,8 @@ CONFIG = {
     "sites_list": list(range(3, 41)),  # N_A (L = 2 N_A)
     "K_list": [1, 2, 3, 4, 5, 6, 7],
     "algos": ["ours", "solomonik", "open_tt"],
-    "m_factor": 1,              # m = m_factor * sites at every point (m = O(N))
-    "M": 5000,                  # single estimates averaged into ONE estimate per point
+    "m_factor": 2,              # m = m_factor * sites at every point (m = O(N))
+    "M": 1000,                  # single estimates averaged into ONE estimate per point
     "chunk_budget": 1_000_000,  # samples per batch = budget // (m^2 chi), >= 4
 
     "out_root": os.path.join("results", "candidate_search"),
