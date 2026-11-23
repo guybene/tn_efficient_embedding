@@ -73,7 +73,9 @@ CONFIG = {
     "M": 1000,                  # single estimates averaged into ONE estimate = one run
     "reps": 10,                 # independent runs per point
 
-    "sweeps": ["K", "eps", "delta", "eta", "sites"],   # run order: sites (largest m) last
+    "sweeps": ["K", "eta", "sites"],   # run order: sites (largest m) last.  "eps" and
+                                       # "delta" are NOT run (2026-11-23): they need a
+                                       # proper (eps, delta) experiment first
     "modes": {"sites": ["fixed_m", "theorem_m"], "K": ["fixed_m", "theorem_m"],
               "eta": ["fixed_m", "theorem_m"], "eps": ["theorem_m"],
               "delta": ["theorem_m"]},
